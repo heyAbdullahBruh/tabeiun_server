@@ -1,3 +1,4 @@
+// src/app.js - Complete with all routes and validators
 import express from "express";
 import cors from "cors";
 import morgan from "morgan";
@@ -16,13 +17,13 @@ import { notFound, errorHandler } from "./middlewares/error.middleware.js";
 
 // Routes
 import authRoutes from "./routes/auth.routes.js";
+import publicAuthRoutes from "./routes/publicAuth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import userRoutes from "./routes/user.routes.js";
 import productRoutes from "./routes/product.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import categoryRoutes from "./routes/category.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
-import publicAuthRoutes from "./routes/publicAuth.routes.js";
-import userRoutes from "./routes/user.routes.js";
 import favouriteRoutes from "./routes/favourite.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 
@@ -89,18 +90,33 @@ app.get("/health", (req, res) => {
 // API Routes
 const API_PREFIX = `/api/${process.env.API_VERSION || "v1"}`;
 
-// Add these routes to your existing route declarations
+// Auth Routes
+app.use(`${API_PREFIX}/auth`, authRoutes); // Admin auth
+app.use(`${API_PREFIX}/auth`, publicAuthRoutes); // Public OAuth
 
-app.use(`${API_PREFIX}/auth`, authRoutes);
-app.use(`${API_PREFIX}/admin`, adminRoutes);
-app.use(`${API_PREFIX}/products`, productRoutes);
-app.use(`${API_PREFIX}/orders`, orderRoutes);
-app.use(`${API_PREFIX}/categories`, categoryRoutes);
-app.use(`${API_PREFIX}/analytics`, analyticsRoutes);
-app.use(`${API_PREFIX}/auth`, publicAuthRoutes); // Public OAuth routes
-app.use(`${API_PREFIX}/users`, userRoutes); // User profile routes
-app.use(`${API_PREFIX}/favourites`, favouriteRoutes); // Favourites routes
-app.use(`${API_PREFIX}/cart`, cartRoutes); // Cart routes
+// Admin Routes
+app.use(`${API_PREFIX}/admin`, adminRoutes); // Admin management
+
+// User Routes
+app.use(`${API_PREFIX}/users`, userRoutes); // User profile
+
+// Product Routes
+app.use(`${API_PREFIX}/products`, productRoutes); // Product management
+
+// Order Routes
+app.use(`${API_PREFIX}/orders`, orderRoutes); // Order management
+
+// Category Routes
+app.use(`${API_PREFIX}/categories`, categoryRoutes); // Category management
+
+// Analytics Routes
+app.use(`${API_PREFIX}/analytics`, analyticsRoutes); // Analytics dashboard
+
+// Favourite Routes
+app.use(`${API_PREFIX}/favourites`, favouriteRoutes); // User favourites
+
+// Cart Routes
+app.use(`${API_PREFIX}/cart`, cartRoutes); // Shopping cart
 
 // 404 handler
 app.use(notFound);
