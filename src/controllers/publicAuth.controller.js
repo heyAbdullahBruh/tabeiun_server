@@ -1,11 +1,10 @@
 import User from "../models/User.model.js";
 import {
   generateTokens,
-  setTokenCookies,
-  clearTokenCookies,
   verifyRefreshToken,
   clearRefreshTokenCookie,
   generateAccessTokenFromRefresh,
+  setRefreshTokenCookie,
 } from "../utils/jwt.utils.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 import emailService from "../services/EmailService.js";
@@ -83,6 +82,7 @@ export const googleAuthCallback = async (req, res) => {
     return res.redirect(`${process.env.PUBLIC_URL}/auth/callback?success=false&message=Authentication failed`);
   }
 };
+
 // Facebook OAuth callback
 export const facebookAuthCallback = async (req, res) => {
   try {
@@ -146,11 +146,10 @@ export const facebookAuthCallback = async (req, res) => {
       role: user.role,
     });
 
-    // Set cookies
-    setTokenCookies(res, accessToken, refreshToken);
-
-    // Redirect to frontend
-    return res.redirect(`${process.env.PUBLIC_URL}/auth/callback?success=true`);
+    // Set refresh token in HTTP-only cookie
+    setRefreshTokenCookie(res, refreshToken);
+    const frontendUrl = process.env.PUBLIC_URL;
+    return res.redirect(`${frontendUrl}/auth/callback#accessToken=${accessToken}`);
   } catch (error) {
     console.error("Facebook auth error:", error);
     return res.redirect(
@@ -162,7 +161,7 @@ export const facebookAuthCallback = async (req, res) => {
 // User Logout
 export const userLogout = async (req, res) => {
   try {
-    clearTokenCookies(res);
+    clearRefreshTokenCookie(res);
     return successResponse(res, null, "Logout successful");
   } catch (error) {
     return errorResponse(res, error.message);
