@@ -4,8 +4,9 @@ import User from "../models/User.model.js";
 import {
   generateTokens,
   verifyRefreshToken,
-  setTokenCookies,
-  clearTokenCookies,
+  setRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  generateAccessTokenFromRefresh,
 } from "../utils/jwt.utils.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
@@ -34,7 +35,6 @@ export const adminLogin = async (req, res) => {
 
     // Update last login
     admin.lastLogin = new Date();
-    await admin.save();
 
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens({
@@ -43,12 +43,12 @@ export const adminLogin = async (req, res) => {
       role: admin.role,
     });
 
-    // Save refresh token
+    // Save refresh token in database
     admin.refreshToken = refreshToken;
     await admin.save();
 
-    // Set cookies
-    setTokenCookies(res, accessToken, refreshToken);
+    // Set refresh token in HTTP-only cookie
+    setRefreshTokenCookie(res, refreshToken);
 
     // Log activity
     await logAdminActivity({
@@ -60,9 +60,11 @@ export const adminLogin = async (req, res) => {
       userAgent: req.get("user-agent"),
     });
 
+    // Send access token in response body
     return successResponse(
       res,
       {
+        accessToken,
         admin: {
           id: admin._id,
           name: admin.name,
@@ -77,87 +79,104 @@ export const adminLogin = async (req, res) => {
   }
 };
 
-// Admin Logout
+// adminLogout
 export const adminLogout = async (req, res) => {
   try {
     const admin = req.admin;
-
-    // Clear refresh token
+    
+    // Clear refresh token from database
     admin.refreshToken = null;
     await admin.save();
 
     // Log activity
     await logAdminActivity({
       adminId: admin._id,
-      actionType: "LOGOUT",
-      targetModel: "Admin",
+      actionType: 'LOGOUT',
+      targetModel: 'Admin',
       targetId: admin._id,
       ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
+      userAgent: req.get('user-agent')
     });
 
-    // Clear cookies
-    clearTokenCookies(res);
+    // Clear refresh token cookie
+    clearRefreshTokenCookie(res);
 
-    return successResponse(res, null, "Logout successful");
+    return successResponse(res, null, 'Logout successful');
   } catch (error) {
     return errorResponse(res, error.message);
   }
 };
 
-// Refresh Token
+// userLogout
+export const userLogout = async (req, res) => {
+  try {
+    // Clear refresh token cookie
+    clearRefreshTokenCookie(res);
+    
+    return successResponse(res, null, 'Logout successful');
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+// refreshToken
 export const refreshToken = async (req, res) => {
   try {
+    // Get refresh token from cookie only
     const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {
-      return errorResponse(res, "Refresh token required", 401);
+      return errorResponse(res, 'Refresh token required', 401);
     }
 
     // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
 
     // Find admin with this refresh token
-    const admin = await Admin.findOne({
-      _id: decoded.id,
+    const admin = await Admin.findOne({ 
+      _id: decoded.id, 
       refreshToken,
-      isActive: true,
+      isActive: true 
     });
 
     if (!admin) {
-      return errorResponse(res, "Invalid refresh token", 401);
+      // Clear invalid refresh token cookie
+      clearRefreshTokenCookie(res);
+      return errorResponse(res, 'Invalid refresh token', 401);
     }
 
-    // Generate new tokens
-    const tokens = generateTokens({
-      id: admin._id,
-      email: admin.email,
-      role: admin.role,
-    });
+    // Generate new access token only
+    const newAccessToken = generateAccessTokenFromRefresh(refreshToken);
 
-    // Update refresh token
-    admin.refreshToken = tokens.refreshToken;
-    await admin.save();
+    // Optionally implement token rotation - issue new refresh token
+    // This is more secure but requires updating the database
+    if (shouldRotateRefreshToken()) {
+      const { refreshToken: newRefreshToken } = generateTokens({
+        id: admin._id,
+        email: admin.email,
+        role: admin.role
+      });
 
-    // Set new cookies
-    setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+      admin.refreshToken = newRefreshToken;
+      await admin.save();
 
-    return successResponse(
-      res,
-      {
-        admin: {
-          id: admin._id,
-          name: admin.name,
-          email: admin.email,
-          role: admin.role,
-        },
-      },
-      "Token refreshed",
-    );
+      // Set new refresh token cookie
+      setRefreshTokenCookie(res, newRefreshToken);
+    }
+
+    return successResponse(res, {
+      accessToken: newAccessToken
+    }, 'Token refreshed');
   } catch (error) {
-    clearTokenCookies(res);
-    return errorResponse(res, "Invalid refresh token", 401);
+    clearRefreshTokenCookie(res);
+    return errorResponse(res, 'Invalid refresh token', 401);
   }
+};
+
+// Helper to decide if refresh token should be rotated
+const shouldRotateRefreshToken = () => {
+  // Implement logic: maybe rotate every 3 days or on suspicious activity
+  return Math.random() < 0.1; // 10% chance for demo - adjust as needed
 };
 
 // Get Current Admin
