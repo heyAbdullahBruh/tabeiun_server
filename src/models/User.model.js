@@ -62,6 +62,6 @@ const userSchema = new mongoose.Schema(
 userSchema.index({ provider: 1, providerId: 1 }, { unique: true });
 userSchema.index({ email: 1, isBlocked: 1 });
 userSchema.index({ createdAt: -1 });
-s
+
 const User = mongoose.model("User", userSchema);
 export default User;

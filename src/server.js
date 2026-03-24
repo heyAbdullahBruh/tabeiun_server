@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import app from "./app.js";
+import connectDB from "./config/db.js";
 
 // Load environment variables
 dotenv.config();
@@ -12,32 +12,6 @@ process.on("uncaughtException", (err) => {
   console.error(err.stack);
   process.exit(1);
 });
-
-// MongoDB connection
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      autoIndex: process.env.NODE_ENV !== "production",
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-
-    // Handle connection events
-    mongoose.connection.on("error", (err) => {
-      console.error("❌ MongoDB connection error:", err);
-    });
-
-    mongoose.connection.on("disconnected", () => {
-      console.warn("⚠️ MongoDB disconnected");
-    });
-  } catch (error) {
-    console.error("❌ MongoDB connection error:", error);
-    process.exit(1);
-  }
-};
 
 // Start server
 const PORT = process.env.PORT || 5000;
