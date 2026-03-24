@@ -1,6 +1,4 @@
-import bcrypt from "bcrypt";
 import Admin from "../models/Admin.model.js";
-import User from "../models/User.model.js";
 import {
   generateTokens,
   verifyRefreshToken,
@@ -83,7 +81,7 @@ export const adminLogin = async (req, res) => {
 export const adminLogout = async (req, res) => {
   try {
     const admin = req.admin;
-    
+
     // Clear refresh token from database
     admin.refreshToken = null;
     await admin.save();
@@ -91,17 +89,17 @@ export const adminLogout = async (req, res) => {
     // Log activity
     await logAdminActivity({
       adminId: admin._id,
-      actionType: 'LOGOUT',
-      targetModel: 'Admin',
+      actionType: "LOGOUT",
+      targetModel: "Admin",
       targetId: admin._id,
       ipAddress: req.ip,
-      userAgent: req.get('user-agent')
+      userAgent: req.get("user-agent"),
     });
 
     // Clear refresh token cookie
     clearRefreshTokenCookie(res);
 
-    return successResponse(res, null, 'Logout successful');
+    return successResponse(res, null, "Logout successful");
   } catch (error) {
     return errorResponse(res, error.message);
   }
@@ -112,8 +110,8 @@ export const userLogout = async (req, res) => {
   try {
     // Clear refresh token cookie
     clearRefreshTokenCookie(res);
-    
-    return successResponse(res, null, 'Logout successful');
+
+    return successResponse(res, null, "Logout successful");
   } catch (error) {
     return errorResponse(res, error.message);
   }
@@ -126,23 +124,23 @@ export const refreshToken = async (req, res) => {
     const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {
-      return errorResponse(res, 'Refresh token required', 401);
+      return errorResponse(res, "Refresh token required", 401);
     }
 
     // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
 
     // Find admin with this refresh token
-    const admin = await Admin.findOne({ 
-      _id: decoded.id, 
+    const admin = await Admin.findOne({
+      _id: decoded.id,
       refreshToken,
-      isActive: true 
+      isActive: true,
     });
 
     if (!admin) {
       // Clear invalid refresh token cookie
       clearRefreshTokenCookie(res);
-      return errorResponse(res, 'Invalid refresh token', 401);
+      return errorResponse(res, "Invalid refresh token", 401);
     }
 
     // Generate new access token only
@@ -154,7 +152,7 @@ export const refreshToken = async (req, res) => {
       const { refreshToken: newRefreshToken } = generateTokens({
         id: admin._id,
         email: admin.email,
-        role: admin.role
+        role: admin.role,
       });
 
       admin.refreshToken = newRefreshToken;
@@ -164,12 +162,16 @@ export const refreshToken = async (req, res) => {
       setRefreshTokenCookie(res, newRefreshToken);
     }
 
-    return successResponse(res, {
-      accessToken: newAccessToken
-    }, 'Token refreshed');
+    return successResponse(
+      res,
+      {
+        accessToken: newAccessToken,
+      },
+      "Token refreshed",
+    );
   } catch (error) {
     clearRefreshTokenCookie(res);
-    return errorResponse(res, 'Invalid refresh token', 401);
+    return errorResponse(res, "Invalid refresh token", 401);
   }
 };
 
