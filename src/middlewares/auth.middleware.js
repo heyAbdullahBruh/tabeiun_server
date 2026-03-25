@@ -23,7 +23,7 @@ export const authenticateAdmin = async (req, res, next) => {
     // Check if admin exists and is active
     const admin = await Admin.findById(decoded.id).select("-password");
     if (!admin || !admin.isActive) {
-      return errorResponse(res, "Admin not found or inactive", 401);
+      return errorResponse(res, "Activation error", 401);
     }
 
     // Attach admin to request

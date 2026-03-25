@@ -2,12 +2,16 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
+    "dev": "nodemon server.js",
+    "start": "nodemon server.js",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "seed": "node src/seeders/seeder.js",
+    "seed:admin": "node src/seeders/seeder.js --admin-only",
+    "seed:data": "node src/seeders/seeder.js --data-only",
+    "seed:all": "node src/seeders/seeder.js --all"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +19,7 @@
   "type": "module",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "chalk": "^5.6.2",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

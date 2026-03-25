@@ -1,7 +1,6 @@
 import Admin, { AdminRole } from "../models/Admin.model.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
-import bcrypt from "bcrypt";
 
 // Create Moderator (Admin only)
 export const createModerator = async (req, res) => {
