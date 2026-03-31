@@ -42,6 +42,15 @@ const adminSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
+    // NEW FIELDS FOR PASSWORD RESET
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpiry: {
+      type: Date,
+      select: false,
+    },
   },
   {
     timestamps: true,
@@ -59,7 +68,6 @@ adminSchema.pre("save", async function (next) {
     const salt = await bcrypt.genSalt(
       parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
     );
-    // FIXED: Added await here
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
