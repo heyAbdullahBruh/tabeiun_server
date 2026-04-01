@@ -35,14 +35,10 @@ export const verifyRefreshToken = (token) => {
 export const setRefreshTokenCookie = (res, refreshToken) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    path: "/api/v1/auth/refresh-token", // Only sent to refresh endpoint
-    // domain:
-    //   process.env.NODE_ENV === "production"
-    //     ? ".tabeiunmedicine.com"
-    //     : undefined,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
   });
 };
 
@@ -50,13 +46,10 @@ export const setRefreshTokenCookie = (res, refreshToken) => {
 export const clearRefreshTokenCookie = (res) => {
   res.clearCookie("refreshToken", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    path: "/api/v1/auth/refresh-token",
-    // domain:
-    //   process.env.NODE_ENV === "production"
-    //     ? ".tabeiunmedicine.com"
-    //     : undefined,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
   });
 };
 

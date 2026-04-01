@@ -22,7 +22,7 @@ export const adminLogin = async (req, res) => {
     if (!admin) {
       return errorResponse(res, "Invalid credentials", 401);
     }
-
+    console.log(admin);
     // Check if active
     if (!admin.isActive) {
       return errorResponse(res, "Account is deactivated", 403);
@@ -30,7 +30,13 @@ export const adminLogin = async (req, res) => {
 
     // Verify password
     const isPasswordValid = await admin.comparePassword(password);
-    if (!isPasswordValid) {
+    console.log("Password validation result:", isPasswordValid);
+    console.log(
+      "bcrypt.compareSync(password, admin.password)",
+      bcrypt.compareSync(password, admin.password),
+    );
+
+    if (!bcrypt.compareSync(password, admin.password)) {
       return errorResponse(res, "Invalid credentials", 401);
     }
 

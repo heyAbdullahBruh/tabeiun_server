@@ -61,17 +61,14 @@ const adminSchema = new mongoose.Schema(
 adminSchema.pre("save", async function (next) {
   // Only hash if password is modified
   if (!this.isModified("password")) {
-    return next();
+    return;
   }
 
   try {
-    const salt = await bcrypt.genSalt(
-      parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
-    );
+    const salt = 10;
     this.password = await bcrypt.hash(this.password, salt);
-    next();
   } catch (error) {
-    next(error);
+    throw new Error("Error: Something went wrong:P");
   }
 });
 
