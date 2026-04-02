@@ -1,3 +1,6 @@
+import Order from "../models/Order.model.js";
+import Product from "../models/Product.model.js";
+import User from "../models/User.model.js";
 import analyticsService from "../services/AnalyticsService.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 

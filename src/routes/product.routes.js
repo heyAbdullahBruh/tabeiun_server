@@ -32,7 +32,7 @@ router.get("/:slugOrId", getProduct);
 
 // Protected routes (Admin/Moderator only)
 router.post(
-  "/",
+  "/new",
   authenticateAdmin,
   isAdminOrModerator,
   upload.array("images", 5),
