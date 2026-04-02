@@ -13,7 +13,7 @@ import {
 } from "../utils/responseFormatter.js";
 
 // Get activity logs with pagination
-export const getActivityLogs = async (req, res) => {
+export const getAllActivityLogs = async (req, res) => {
   try {
     const {
       page = 1,
@@ -49,7 +49,7 @@ export const getActivityLogs = async (req, res) => {
 };
 
 // Get activity summary for dashboard
-export const getActivitySummary = async (req, res) => {
+export const getActivitySummaries = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -69,7 +69,7 @@ export const getActivitySummary = async (req, res) => {
 };
 
 // Get activity logs for specific admin
-export const getAdminActivityLogs = async (req, res) => {
+export const AdminActivityLogs = async (req, res) => {
   try {
     const { adminId } = req.params;
     const { page = 1, limit = 20, startDate, endDate } = req.query;
@@ -95,7 +95,7 @@ export const getAdminActivityLogs = async (req, res) => {
 };
 
 // Get single activity log by ID
-export const getActivityLogById = async (req, res) => {
+export const ActivityLogById = async (req, res) => {
   try {
     const { logId } = req.params;
 
