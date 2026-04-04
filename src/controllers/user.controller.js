@@ -4,8 +4,10 @@ import {
   errorResponse,
   paginationResponse,
 } from "../utils/responseFormatter.js";
-import { uploadToImageKit, deleteFromImageKit } from "../config/imagekit.js";
+import { uploadToImageKit } from "../config/imagekit.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
+import Order from "../models/Order.model.js";
+import mongoose from "mongoose";
 
 // Update User Profile
 export const updateUserProfile = async (req, res) => {
@@ -248,6 +250,276 @@ export const toggleUserBlock = async (req, res) => {
       },
       `User ${user.isBlocked ? "blocked" : "unblocked"} successfully`,
     );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+// Admin: Get User Orders with pagination
+export const getUserOrdersByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      startDate,
+      endDate,
+      sortBy = "-createdAt",
+    } = req.query;
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return errorResponse(res, "User not found", 404);
+    }
+
+    // Build filter
+    const filter = { user: mongoose.Types.ObjectId(userId) };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Get orders with pagination
+    const orders = await Order.find(filter)
+      .populate("products.product", "name slug images price")
+      .sort(sortBy)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
+
+    // Get order statistics
+    const stats = await Order.aggregate([
+      { $match: { user: mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$finalAmount" },
+        },
+      },
+    ]);
+
+    // Get total spent
+    const totalSpent = await Order.aggregate([
+      {
+        $match: { user: mongoose.Types.ObjectId(userId), status: "Delivered" },
+      },
+      { $group: { _id: null, total: { $sum: "$finalAmount" } } },
+    ]);
+
+    const total = await Order.countDocuments(filter);
+
+    // Format order status distribution
+    const statusDistribution = {};
+    stats.forEach((stat) => {
+      statusDistribution[stat._id] = {
+        count: stat.count,
+        totalAmount: stat.totalAmount,
+      };
+    });
+
+    return paginationResponse(
+      res,
+      {
+        orders,
+        stats: {
+          totalOrders: await Order.countDocuments({ user: userId }),
+          totalSpent: totalSpent[0]?.total || 0,
+          averageOrderValue:
+            totalSpent[0]?.total /
+              (await Order.countDocuments({
+                user: userId,
+                status: "Delivered",
+              })) || 0,
+          statusDistribution,
+        },
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          isBlocked: user.isBlocked,
+          createdAt: user.createdAt,
+        },
+      },
+      total,
+      page,
+      limit,
+      "User orders fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+// Admin: Get User Order Summary (quick stats)
+export const getUserOrderSummaryByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).select(
+      "name email phone isBlocked",
+    );
+    if (!user) {
+      return errorResponse(res, "User not found", 404);
+    }
+
+    // Get order statistics
+    const [
+      totalOrders,
+      totalSpent,
+      pendingOrders,
+      deliveredOrders,
+      cancelledOrders,
+      lastOrder,
+      monthlyStats,
+    ] = await Promise.all([
+      Order.countDocuments({ user: userId }),
+      Order.aggregate([
+        {
+          $match: {
+            user: mongoose.Types.ObjectId(userId),
+            status: "Delivered",
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$finalAmount" } } },
+      ]),
+      Order.countDocuments({ user: userId, status: "Pending" }),
+      Order.countDocuments({ user: userId, status: "Delivered" }),
+      Order.countDocuments({ user: userId, status: "Cancelled" }),
+      Order.findOne({ user: userId })
+        .sort("-createdAt")
+        .select("orderId finalAmount status createdAt"),
+      Order.aggregate([
+        { $match: { user: mongoose.Types.ObjectId(userId) } },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$createdAt" },
+              month: { $month: "$createdAt" },
+            },
+            orders: { $sum: 1 },
+            spent: { $sum: "$finalAmount" },
+          },
+        },
+        { $sort: { "_id.year": -1, "_id.month": -1 } },
+        { $limit: 6 },
+      ]),
+    ]);
+
+    return successResponse(
+      res,
+      {
+        user,
+        orderStats: {
+          totalOrders,
+          totalSpent: totalSpent[0]?.total || 0,
+          pendingOrders,
+          deliveredOrders,
+          cancelledOrders,
+          lastOrder,
+          monthlyStats: monthlyStats.map((stat) => ({
+            year: stat._id.year,
+            month: stat._id.month,
+            orders: stat.orders,
+            spent: stat.spent,
+          })),
+        },
+      },
+      "User order summary fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+// Admin: Export User Orders to CSV
+export const exportUserOrders = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { startDate, endDate, status } = req.query;
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return errorResponse(res, "User not found", 404);
+    }
+
+    // Build filter
+    const filter = { user: mongoose.Types.ObjectId(userId) };
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        filter.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Get orders
+    const orders = await Order.find(filter)
+      .populate("products.product", "name")
+      .sort("-createdAt")
+      .lean();
+
+    // Format data for CSV
+    const csvData = [];
+    orders.forEach((order) => {
+      order.products.forEach((product) => {
+        csvData.push({
+          "Order ID": order.orderId,
+          "Order Date": new Date(order.createdAt).toLocaleDateString("bn-BD"),
+          "Product Name": product.product?.name || "N/A",
+          Quantity: product.quantity,
+          "Unit Price": product.priceAtPurchase,
+          Total: product.quantity * product.priceAtPurchase,
+          "Order Status": order.status,
+          "Final Amount": order.finalAmount,
+          "Payment Method": order.paymentMethod,
+          "Delivery Address": `${order.deliveryAddress.street}, ${order.deliveryAddress.city}`,
+          Phone: order.phone,
+        });
+      });
+    });
+
+    // Set CSV headers
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=user-${user.email}-orders-${Date.now()}.csv`,
+    );
+
+    if (csvData.length > 0) {
+      const headers = Object.keys(csvData[0]);
+      const csvRows = [
+        headers.join(","),
+        ...csvData.map((row) =>
+          headers.map((header) => `"${row[header] || ""}"`).join(","),
+        ),
+      ];
+
+      return res.send(csvRows.join("\n"));
+    } else {
+      return res.send("No orders found for this user");
+    }
   } catch (error) {
     return errorResponse(res, error.message);
   }
