@@ -52,7 +52,6 @@ categorySchema.pre("save", function (next) {
       .replace(/--+/g, "-")
       .replace(/^-+|-+$/g, "");
   }
-  next();
 });
 
 categorySchema.index({ isActive: 1, slug: 1 });
