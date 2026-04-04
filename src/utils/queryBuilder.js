@@ -9,7 +9,16 @@ export class QueryBuilder {
 
   filter() {
     const queryObj = { ...this.queryString };
-    const excludedFields = ["page", "sort", "limit", "fields", "search"];
+    const excludedFields = [
+      "page",
+      "sort",
+      "limit",
+      "fields",
+      "search",
+      "stockStatus",
+      "isPublished",
+      "diseaseCategory",
+    ];
     excludedFields.forEach((el) => delete queryObj[el]);
 
     // Advanced filtering with operators
@@ -112,6 +121,54 @@ export class QueryBuilder {
     if (this.queryString.minRating) {
       this.query = this.query.find({
         ratingAverage: { $gte: parseFloat(this.queryString.minRating) },
+      });
+    }
+    return this;
+  }
+
+  // NEW METHOD: Filter by stock status
+  filterByStockStatus() {
+    if (this.queryString.stockStatus) {
+      const status = this.queryString.stockStatus;
+
+      if (status === "in") {
+        // In Stock: stock > lowStockAlert or stock > 10
+        this.query = this.query.find({
+          $expr: { $gt: ["$stock", { $ifNull: ["$lowStockAlert", 10] }] },
+        });
+      } else if (status === "low") {
+        // Low Stock: stock <= lowStockAlert AND stock > 0
+        this.query = this.query.find({
+          $and: [
+            {
+              $expr: { $lte: ["$stock", { $ifNull: ["$lowStockAlert", 10] }] },
+            },
+            { stock: { $gt: 0 } },
+          ],
+        });
+      } else if (status === "out") {
+        // Out of Stock: stock === 0
+        this.query = this.query.find({ stock: 0 });
+      }
+    }
+    return this;
+  }
+
+  // NEW METHOD: Filter by publish status
+  filterByPublishStatus() {
+    if (this.queryString.isPublished !== undefined) {
+      this.query = this.query.find({
+        isPublished: this.queryString.isPublished,
+      });
+    }
+    return this;
+  }
+
+  // NEW METHOD: Filter by category
+  filterByCategory() {
+    if (this.queryString.diseaseCategory) {
+      this.query = this.query.find({
+        diseaseCategory: this.queryString.diseaseCategory,
       });
     }
     return this;

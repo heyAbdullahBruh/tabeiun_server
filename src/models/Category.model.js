@@ -22,36 +22,52 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    metaTitle: {
-      type: String,
-      trim: true,
-    },
-    metaDescription: {
-      type: String,
-      trim: true,
-    },
-    keywords: [
-      {
-        type: String,
-        trim: true,
-      },
-    ],
+    metaTitle: String,
+    metaDescription: String,
+    keywords: [String],
   },
   {
     timestamps: true,
   },
 );
 
-// Generate slug before saving
-categorySchema.pre("save", function (next) {
-  if (this.isModified("name")) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^\u0980-\u09FF\w\s-]/g, "") // Keep Bangla chars, remove special
-      .replace(/\s+/g, "-")
-      .replace(/--+/g, "-")
-      .replace(/^-+|-+$/g, "");
+// 🔥 Slug Generator Function
+const generateSlug = (text) => {
+  return text
+    .toString()
+    .toLowerCase()
+    .replace(/[^\u0980-\u09FF\w\s-]/g, "") // keep Bangla + English
+    .replace(/\s+/g, "-")
+    .replace(/--+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
+// 🔥 Pre-save hook
+categorySchema.pre("save", async function (next) {
+  if (!this.isModified("name")) return;
+
+  const baseSlug = generateSlug(this.name);
+
+  // Short unique id (cleaner than full ObjectId)
+  const uniqueSuffix = new mongoose.Types.ObjectId().toString();
+
+  let finalSlug = `${baseSlug}-${uniqueSuffix}`;
+
+  // Ensure uniqueness (extra safety)
+  let slugExists = await mongoose.models.Category.findOne({
+    slug: finalSlug,
+  });
+
+  let counter = 1;
+  while (slugExists) {
+    finalSlug = `${baseSlug}-${uniqueSuffix}-${counter}`;
+    slugExists = await mongoose.models.Category.findOne({
+      slug: finalSlug,
+    });
+    counter++;
   }
+
+  this.slug = finalSlug;
 });
 
 categorySchema.index({ isActive: 1, slug: 1 });

@@ -12,16 +12,12 @@ class ProductService extends BaseService {
 
   async createProduct(productData, images = []) {
     try {
-      // Generate unique slug
       const slug = await generateUniqueSlug(Product, productData.name);
-
-      // Create product with images
       const product = await this.create({
         ...productData,
         slug,
         images,
       });
-
       return product;
     } catch (error) {
       throw new Error(`Product creation failed: ${error.message}`);
@@ -35,14 +31,11 @@ class ProductService extends BaseService {
         throw new Error("Product not found");
       }
 
-      // If name changed, update slug
       if (updateData.name && updateData.name !== product.name) {
         updateData.slug = await generateUniqueSlug(Product, updateData.name);
       }
 
-      // Handle image updates
       if (newImages.length > 0) {
-        // Delete old images from ImageKit
         if (product.images && product.images.length > 0) {
           await Promise.all(
             product.images.map((img) => deleteFromImageKit(img.imageId)),
@@ -65,16 +58,13 @@ class ProductService extends BaseService {
         throw new Error("Product not found");
       }
 
-      // Delete images from ImageKit
       if (product.images && product.images.length > 0) {
         await Promise.all(
           product.images.map((img) => deleteFromImageKit(img.imageId)),
         );
       }
 
-      // Soft delete the product
       await this.delete(productId, true);
-
       return true;
     } catch (error) {
       throw new Error(`Product deletion failed: ${error.message}`);
@@ -83,13 +73,19 @@ class ProductService extends BaseService {
 
   async getFilteredProducts(queryString) {
     try {
-      const queryBuilder = new QueryBuilder(Product.find(), queryString)
+      // Transform frontend filters to backend expected format
+      const transformedQuery = this.transformFrontendFilters(queryString);
+
+      const queryBuilder = new QueryBuilder(Product.find(), transformedQuery)
         .filter()
         .search()
         .filterByDisease()
         .filterByAgeGender()
         .filterByPrice()
         .filterByRating()
+        .filterByStockStatus()
+        .filterByPublishStatus()
+        .filterByCategory()
         .sort()
         .limitFields()
         .paginate();
@@ -115,6 +111,38 @@ class ProductService extends BaseService {
     } catch (error) {
       throw new Error(`Product filtering failed: ${error.message}`);
     }
+  }
+
+  // Transform frontend filters to match QueryBuilder expectations
+  transformFrontendFilters(filters) {
+    const transformed = { ...filters };
+
+    // Map frontend parameter names to backend parameter names
+    if (filters.category) {
+      transformed.diseaseCategory = filters.category;
+      delete transformed.category;
+    }
+
+    // Handle stock status filter
+    if (filters.stockStatus) {
+      transformed.stockStatus = filters.stockStatus;
+      delete transformed.stockStatus;
+    }
+
+    // Handle publish status
+    if (filters.isPublished !== undefined && filters.isPublished !== "") {
+      transformed.isPublished = filters.isPublished === "true";
+    }
+
+    // Handle price range
+    if (filters.minPrice) {
+      transformed.minPrice = filters.minPrice;
+    }
+    if (filters.maxPrice) {
+      transformed.maxPrice = filters.maxPrice;
+    }
+
+    return transformed;
   }
 
   async updateProductRating(productId) {
