@@ -122,7 +122,7 @@ const orderSchema = new mongoose.Schema(
 );
 
 // Add initial timeline log on save
-orderSchema.pre("save", function (next) {
+orderSchema.pre("save", async function () {
   if (this.isNew) {
     this.timelineLogs = [
       {
@@ -131,7 +131,6 @@ orderSchema.pre("save", function (next) {
       },
     ];
   }
-  next();
 });
 
 // Indexes for filtering and analytics
