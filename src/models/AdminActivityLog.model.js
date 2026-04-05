@@ -22,6 +22,8 @@ const activityLogSchema = new mongoose.Schema({
       "CREATE_MODERATOR",
       "BLOCK_USER",
       "UNBLOCK_USER",
+      "LOW_STOCK_ALERT",
+      "BULK_NOTIFICATION",
     ],
   },
   targetModel: {
@@ -43,10 +45,28 @@ const activityLogSchema = new mongoose.Schema({
     default: Date.now,
     index: true,
   },
+  // NEW NOTIFICATION FIELDS
+  isNotified: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  notificationSentAt: Date,
+  isRead: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  readAt: Date,
+  readBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Admin",
+  },
 });
 
-// Index for filtering by date range
-activityLogSchema.index({ timestamp: -1, adminId: 1 });
+// Indexes for notification queries
+activityLogSchema.index({ isNotified: 1, isRead: 1, timestamp: -1 });
+activityLogSchema.index({ adminId: 1, isNotified: 1, isRead: 1 });
 
 const AdminActivityLog = mongoose.model("AdminActivityLog", activityLogSchema);
 export default AdminActivityLog;

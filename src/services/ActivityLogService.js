@@ -12,6 +12,14 @@ import mongoose from "mongoose";
  * @param {string} logData.ipAddress - IP address of admin
  * @param {string} logData.userAgent - User agent of admin's browser
  */
+
+// Store notification service reference
+let notificationService = null;
+
+export const setNotificationService = (service) => {
+  notificationService = service;
+};
+
 export const logAdminActivity = async (logData) => {
   try {
     const {
@@ -45,17 +53,21 @@ export const logAdminActivity = async (logData) => {
       ipAddress,
       userAgent,
       timestamp: new Date(),
+      isNotified: false,
+      isRead: false,
     });
+
+    // Trigger real-time notification
+    if (notificationService) {
+      await notificationService.createAndSendNotification(activityLog);
+    }
 
     return activityLog;
   } catch (error) {
-    // Don't throw error - just log to console
-    // Activity logging should not break the main flow
     console.error("Failed to log admin activity:", error.message);
     return null;
   }
 };
-
 /**
  * Get activity logs with filtering and pagination
  * @param {Object} options - Query options
@@ -349,6 +361,76 @@ export const exportActivityLogsToCSV = async (filter = {}) => {
     throw new Error(`Failed to export activity logs: ${error.message}`);
   }
 };
+export const getUnreadNotifications = async (adminId, limit = 20) => {
+  try {
+    const notifications = await AdminActivityLog.find({
+      adminId: { $ne: new mongoose.Types.ObjectId(adminId) },
+      isNotified: true,
+      isRead: { $ne: true },
+    })
+      .sort("-timestamp")
+      .limit(limit)
+      .populate("adminId", "name email")
+      .lean();
+
+    return notifications;
+  } catch (error) {
+    console.error("Failed to fetch unread notifications:", error);
+    return [];
+  }
+};
+
+// New function to mark notification as read
+export const markNotificationAsRead = async (notificationId, adminId) => {
+  try {
+    await AdminActivityLog.findByIdAndUpdate(notificationId, {
+      isRead: true,
+      readAt: new Date(),
+      readBy: new mongoose.Types.ObjectId(adminId),
+    });
+    return true;
+  } catch (error) {
+    console.error("Failed to mark notification as read:", error);
+    return false;
+  }
+};
+
+// New function to mark all notifications as read
+export const markAllNotificationsAsRead = async (adminId) => {
+  try {
+    await AdminActivityLog.updateMany(
+      {
+        adminId: { $ne: new mongoose.Types.ObjectId(adminId) },
+        isNotified: true,
+        isRead: { $ne: true },
+      },
+      {
+        isRead: true,
+        readAt: new Date(),
+        readBy: new mongoose.Types.ObjectId(adminId),
+      },
+    );
+    return true;
+  } catch (error) {
+    console.error("Failed to mark all notifications as read:", error);
+    return false;
+  }
+};
+
+// New function to get unread count
+export const getUnreadNotificationCount = async (adminId) => {
+  try {
+    const count = await AdminActivityLog.countDocuments({
+      adminId: { $ne: new mongoose.Types.ObjectId(adminId) },
+      isNotified: true,
+      isRead: { $ne: true },
+    });
+    return count;
+  } catch (error) {
+    console.error("Failed to get unread count:", error);
+    return 0;
+  }
+};
 
 export default {
   logAdminActivity,
@@ -358,4 +440,9 @@ export default {
   cleanupOldActivityLogs,
   getActivityLogById,
   exportActivityLogsToCSV,
+  getUnreadNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getUnreadNotificationCount,
+  setNotificationService,
 };
