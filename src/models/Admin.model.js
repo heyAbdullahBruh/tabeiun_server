@@ -42,7 +42,6 @@ const adminSchema = new mongoose.Schema(
       type: String,
       select: false,
     },
-    // NEW FIELDS FOR PASSWORD RESET
     resetPasswordToken: {
       type: String,
       select: false,
@@ -51,24 +50,90 @@ const adminSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    // NEW FIELDS FOR SETTINGS
+    notificationPreferences: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        email: {
+          orderNotifications: true,
+          newUserAlerts: true,
+          lowStockAlerts: true,
+          dailySummary: false,
+          weeklyReport: true,
+          systemUpdates: true,
+          marketingEmails: false,
+        },
+        inApp: {
+          realTimeOrders: true,
+          mentionNotifications: true,
+          taskAssignments: true,
+          commentReplies: false,
+        },
+        desktop: {
+          enabled: false,
+          soundAlerts: true,
+          quietHours: {
+            enabled: false,
+            start: "22:00",
+            end: "08:00",
+          },
+        },
+        channels: {
+          email: true,
+          webhook: false,
+        },
+        priority: {
+          high: ["email", "inApp"],
+          medium: ["email"],
+          low: [],
+        },
+      },
+    },
+    userPreferences: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        theme: "light",
+        language: "en",
+        dateFormat: "DD/MM/YYYY",
+        timeFormat: "24h",
+        currency: "BDT",
+        dashboard: {
+          defaultView: "overview",
+          widgets: ["stats", "recentOrders", "topProducts", "chart"],
+          autoRefresh: true,
+          refreshInterval: 30,
+        },
+        accessibility: {
+          fontSize: "medium",
+          highContrast: false,
+          reducedMotion: false,
+          screenReaderOptimized: false,
+        },
+        tableSettings: {
+          defaultPageSize: 10,
+          denseView: false,
+        },
+      },
+    },
   },
   {
     timestamps: true,
   },
 );
 
-// Hash password before saving - FIXED VERSION
+// Hash password before saving
 adminSchema.pre("save", async function (next) {
-  // Only hash if password is modified
   if (!this.isModified("password")) {
     return;
   }
 
   try {
-    const salt = 10;
+    const salt = await bcrypt.genSalt(
+      parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
+    );
     this.password = await bcrypt.hash(this.password, salt);
   } catch (error) {
-    throw new Error("Error: Something went wrong:P");
+    throw new Error("Error : Somw");
   }
 });
 
