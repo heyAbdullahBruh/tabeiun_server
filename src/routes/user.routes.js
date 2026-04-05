@@ -10,6 +10,9 @@ import {
   getAllUsers,
   getUserById,
   toggleUserBlock,
+  getUserOrdersByAdmin,
+  getUserOrderSummaryByAdmin,
+  exportUserOrders,
 } from "../controllers/user.controller.js";
 import {
   authenticateUser,
@@ -88,5 +91,30 @@ router.patch(
   validate(userIdValidator),
   toggleUserBlock,
 );
+// NEW: Get user orders (admin only)
+router.get(
+  "/admin/:userId/orders",
+  authenticateAdmin,
+  isAdmin,
+  validate(userIdValidator),
+  getUserOrdersByAdmin,
+);
 
+// NEW: Get user order summary (admin only)
+router.get(
+  "/admin/:userId/orders/summary",
+  authenticateAdmin,
+  isAdmin,
+  validate(userIdValidator),
+  getUserOrderSummaryByAdmin,
+);
+
+// NEW: Export user orders to CSV (admin only)
+router.get(
+  "/admin/:userId/orders/export",
+  authenticateAdmin,
+  isAdmin,
+  validate(userIdValidator),
+  exportUserOrders,
+);
 export default router;

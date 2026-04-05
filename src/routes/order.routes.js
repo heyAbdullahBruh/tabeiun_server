@@ -1,121 +1,109 @@
 import { Router } from "express";
-import multer from "multer";
 import {
-  updateUserProfile,
-  updateUserAvatar,
-  getUserOrderSummary,
-  getUserAddresses,
-  updateAddress,
-  getAllUsers,
-  getUserById,
-  toggleUserBlock,
-  getUserOrdersByAdmin, // NEW
-  getUserOrderSummaryByAdmin, // NEW
-  exportUserOrders, // NEW
-} from "../controllers/user.controller.js";
+  createOrder,
+  getUserOrders,
+  getUserOrder,
+  cancelOrder,
+  getAllOrders,
+  getOrderDetails,
+  confirmOrder,
+  updateOrderStatus,
+  getOrderStats, // NEW
+  getOrderAnalytics, // NEW
+  getRealtimeOrderStats, // NEW
+} from "../controllers/order.controller.js";
 import {
   authenticateUser,
   authenticateAdmin,
 } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isAdminOrModerator } from "../middlewares/role.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import {
-  updateProfileValidator,
-  addressValidator,
-  userIdValidator,
-} from "../validators/user.validator.js";
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit for avatars
-});
+  createOrderValidator,
+  orderStatusValidator,
+  orderIdValidator,
+} from "../validators/order.validator.js";
+import { orderRateLimiter } from "../middlewares/rateLimiter.middleware.js";
 
 const router = Router();
 
 // ==========================================
-// USER ROUTES (Authenticated)
+// USER ROUTES
 // ==========================================
-
-// Update user profile
-router.patch(
-  "/profile",
+router.post(
+  "/",
   authenticateUser,
-  validate(updateProfileValidator),
-  updateUserProfile,
+  orderRateLimiter,
+  validate(createOrderValidator),
+  createOrder,
 );
 
-// Update user avatar
-router.patch(
-  "/avatar",
+router.get("/my-orders", authenticateUser, getUserOrders);
+
+router.get(
+  "/my-orders/:orderId",
   authenticateUser,
-  upload.single("avatar"),
-  updateUserAvatar,
+  validate(orderIdValidator),
+  getUserOrder,
 );
 
-// Get user order summary (for authenticated user)
-router.get("/orders/summary", authenticateUser, getUserOrderSummary);
-
-// Get user addresses
-router.get("/addresses", authenticateUser, getUserAddresses);
-
-// Update user address
-router.put(
-  "/addresses",
+router.post(
+  "/:orderId/cancel",
   authenticateUser,
-  validate(addressValidator),
-  updateAddress,
+  validate(orderIdValidator),
+  cancelOrder,
 );
 
 // ==========================================
-// ADMIN ROUTES (Admin only)
+// ADMIN ROUTES
 // ==========================================
 
-// Get all users (admin only)
-router.get("/admin/all", authenticateAdmin, isAdmin, getAllUsers);
-
-// Get single user by ID (admin only)
+// NEW: Order statistics endpoints (must come before /:orderId routes)
 router.get(
-  "/admin/:userId",
+  "/admin/stats",
   authenticateAdmin,
-  isAdmin,
-  validate(userIdValidator),
-  getUserById,
+  isAdminOrModerator,
+  getOrderStats,
 );
 
-// NEW: Get user orders (admin only)
 router.get(
-  "/admin/:userId/orders",
+  "/admin/analytics",
   authenticateAdmin,
-  isAdmin,
-  validate(userIdValidator),
-  getUserOrdersByAdmin,
+  isAdminOrModerator,
+  getOrderAnalytics,
 );
 
-// NEW: Get user order summary (admin only)
 router.get(
-  "/admin/:userId/orders/summary",
+  "/admin/realtime",
   authenticateAdmin,
-  isAdmin,
-  validate(userIdValidator),
-  getUserOrderSummaryByAdmin,
+  isAdminOrModerator,
+  getRealtimeOrderStats,
 );
 
-// NEW: Export user orders to CSV (admin only)
+router.get("/admin/all", authenticateAdmin, isAdminOrModerator, getAllOrders);
+
 router.get(
-  "/admin/:userId/orders/export",
+  "/admin/:orderId",
   authenticateAdmin,
-  isAdmin,
-  validate(userIdValidator),
-  exportUserOrders,
+  isAdminOrModerator,
+  validate(orderIdValidator),
+  getOrderDetails,
 );
 
-// Toggle user block status (admin only)
+router.post(
+  "/admin/:orderId/confirm",
+  authenticateAdmin,
+  isAdminOrModerator,
+  validate(orderIdValidator),
+  confirmOrder,
+);
+
 router.patch(
-  "/admin/:userId/toggle-block",
+  "/admin/:orderId/status",
   authenticateAdmin,
-  isAdmin,
-  validate(userIdValidator),
-  toggleUserBlock,
+  isAdminOrModerator,
+  validate(orderStatusValidator),
+  updateOrderStatus,
 );
 
 export default router;
