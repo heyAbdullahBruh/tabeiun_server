@@ -1,6 +1,7 @@
 import Admin from "../models/Admin.model.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
+import AdminActivityLog from "../models/AdminActivityLog.model.js";
 
 // Get notification preferences
 export const getNotificationPreferences = async (req, res) => {
