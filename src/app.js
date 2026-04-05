@@ -28,6 +28,7 @@ import favouriteRoutes from "./routes/favourite.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import activityLogRoutes from "./routes/activityLog.routes.js";
 import settingsRoutes from "./routes/settings.routes.js";
+import notficationRoutes from "./routes/notification.routes.js";
 
 dotenv.config();
 
@@ -125,6 +126,9 @@ app.use(`${API_PREFIX}/activity-logs`, activityLogRoutes);
 
 // Settings Routes
 app.use(`${API_PREFIX}/settings`, settingsRoutes);
+
+// Notification Routes
+app.use(`${API_PREFIX}/notifications`, notficationRoutes);
 
 // 404 handler
 app.use(notFound);
