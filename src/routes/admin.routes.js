@@ -16,7 +16,11 @@ const router = Router();
 // All admin routes require authentication and admin role
 router.use(authenticateAdmin, isAdmin);
 
-router.post("/moderators", validate(createModeratorValidator), createModerator);
+router.post(
+  "/moderators/new",
+  validate(createModeratorValidator),
+  createModerator,
+);
 router.patch("/:moderatorId/promote", promoteToAdmin);
 router.get("/", getAllAdmins);
 router.patch("/:adminId/toggle-status", toggleAdminStatus);

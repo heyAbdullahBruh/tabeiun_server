@@ -1,4 +1,3 @@
-// src/routes/activityLog.routes.js
 import { Router } from "express";
 import {
   getAllActivityLogs,
@@ -8,26 +7,26 @@ import {
   exportActivityLogs,
 } from "../controllers/activityLog.controller.js";
 import { authenticateAdmin } from "../middlewares/auth.middleware.js";
-import { isAdmin } from "../middlewares/role.middleware.js";
+import { isAdmin, isAdminOrModerator } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
 // All activity log routes require admin authentication
-router.use(authenticateAdmin, isAdmin);
+router.use(authenticateAdmin);
 
 // Get activity logs with pagination and filtering
-router.get("/", getAllActivityLogs);
+router.get("/", isAdmin, getAllActivityLogs);
 
 // Get activity summary for dashboard
-router.get("/summary", getActivitySummaries);
+router.get("/summary", isAdminOrModerator, getActivitySummaries);
 
 // Get activity logs for specific admin
-router.get("/admin/:adminId", AdminActivityLogs);
+router.get("/admin/:adminId", isAdminOrModerator, AdminActivityLogs);
 
 // Get single activity log by ID
-router.get("/:logId", ActivityLogById);
+router.get("/:logId", isAdminOrModerator, ActivityLogById);
 
 // Export activity logs to CSV
-router.get("/export/csv", exportActivityLogs);
+router.get("/export/csv", isAdminOrModerator, exportActivityLogs);
 
 export default router;
