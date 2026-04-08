@@ -169,7 +169,6 @@ productSchema.virtual("isLowStock").get(function () {
 productSchema.index({ isPublished: 1, isDeleted: 1 });
 productSchema.index({ diseaseCategory: 1, isPublished: 1 });
 productSchema.index({ price: 1, ratingAverage: -1 });
-productSchema.index({ slug: 1 }, { unique: true });
 productSchema.index({ diseaseTags: 1 });
 productSchema.index({ medicineBenefits: 1 });
 

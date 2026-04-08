@@ -2,6 +2,7 @@ import Category from "../models/Category.model.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
 import { generateUniqueSlug } from "../utils/slugGenerator.js";
+import Product from "../models/Product.model.js";
 
 // Create Category
 export const createCategory = async (req, res) => {

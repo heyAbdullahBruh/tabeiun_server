@@ -7,6 +7,37 @@ import {
 } from "../services/ActivityLogService.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 
+// Get all notifications for current admin
+export const getAllNotifications = async (req, res) => {
+  try {
+    const adminId = req.admin._id;
+    const { limit = 20, page = 1 } = req.query;
+
+    const notifications = await getUnreadNotifications(
+      adminId,
+      parseInt(limit),
+    );
+    const total = await getUnreadNotificationCount(adminId);
+
+    return successResponse(
+      res,
+      {
+        notifications,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit)),
+        },
+        unreadCount: total,
+      },
+      "Notifications fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Get unread notifications for current admin
 export const getNotifications = async (req, res) => {
   try {
@@ -43,6 +74,8 @@ export const markAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
     const adminId = req.admin._id;
+
+    console.log({ notificationId, adminId });
 
     await markNotificationAsRead(notificationId, adminId);
 

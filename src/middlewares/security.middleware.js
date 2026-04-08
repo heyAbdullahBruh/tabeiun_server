@@ -1,7 +1,7 @@
 import helmet from "helmet";
 import compression from "compression";
 import xss from "xss";
-
+import mongoSanitize from "express-mongo-sanitize";
 // XSS Protection middleware
 export const xssProtect = (req, res, next) => {
   // Sanitize query parameters
@@ -78,58 +78,94 @@ export const compress = compression({
     return compression.filter(req, res);
   },
 });
+const sanitizeValue = (value) => {
+  // Handle null/undefined
+  if (value === null || value === undefined) {
+    return value;
+  }
 
-// MongoDB injection protection
+  // Handle strings
+  if (typeof value === "string") {
+    // Remove dangerous characters for MongoDB
+    return value.replace(/[\$\.]/g, "");
+  }
+
+  // Handle arrays
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeValue(item));
+  }
+
+  // Handle plain objects
+  if (typeof value === "object" && value.constructor === Object) {
+    const sanitized = {};
+    for (const key in value) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        sanitized[key] = sanitizeValue(value[key]);
+      }
+    }
+    return sanitized;
+  }
+
+  // Return other types as-is (dates, numbers, etc.)
+  return value;
+};
+
+// Main sanitize middleware - DOES NOT modify req.query or req.params directly
 export const sanitize = (req, res, next) => {
   try {
-    // Sanitize function that modifies object in place
-    const sanitizeObject = (obj) => {
-      if (!obj || typeof obj !== "object") return;
-
-      // Handle arrays
-      if (Array.isArray(obj)) {
-        obj.forEach((item, index) => {
-          if (typeof item === "object" && item !== null) {
-            sanitizeObject(item);
-          }
-        });
-        return;
-      }
-
-      // Handle objects
-      for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          // Remove MongoDB operator keys (keys starting with $)
-          if (key.startsWith("$")) {
-            delete obj[key];
-            continue;
-          }
-
-          const value = obj[key];
-
-          if (typeof value === "object" && value !== null) {
-            sanitizeObject(value);
-          }
-        }
-      }
-    };
-
-    // Sanitize each part of the request (modify in place, don't reassign)
+    // Only sanitize req.body (this is safe to modify)
     if (req.body && typeof req.body === "object") {
-      sanitizeObject(req.body);
+      req.body = sanitizeValue(req.body);
     }
 
+    // For req.query and req.params, we don't modify them directly
+    // Instead, we create sanitized versions and attach them to req
+    // Routes should use req.sanitizedQuery instead of req.query if needed
     if (req.query && typeof req.query === "object") {
-      sanitizeObject(req.query);
+      req.sanitizedQuery = sanitizeValue(req.query);
     }
 
     if (req.params && typeof req.params === "object") {
-      sanitizeObject(req.params);
+      req.sanitizedParams = sanitizeValue(req.params);
     }
 
     next();
   } catch (error) {
     console.error("Sanitize middleware error:", error);
+    next();
+  }
+};
+
+// Alternative: Completely skip sanitization for queries and params
+// Only sanitize the request body
+export const lightSanitize = (req, res, next) => {
+  try {
+    if (req.body && typeof req.body === "object") {
+      const cleanBody = (obj) => {
+        if (!obj || typeof obj !== "object") return obj;
+        if (Array.isArray(obj)) return obj.map(cleanBody);
+
+        const cleaned = {};
+        for (const key in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            const val = obj[key];
+            if (typeof val === "string") {
+              cleaned[key] = val.replace(/[\$\.]/g, "");
+            } else if (val && typeof val === "object") {
+              cleaned[key] = cleanBody(val);
+            } else {
+              cleaned[key] = val;
+            }
+          }
+        }
+        return cleaned;
+      };
+
+      req.body = cleanBody(req.body);
+    }
+    next();
+  } catch (error) {
+    console.error("Light sanitize error:", error);
     next();
   }
 };

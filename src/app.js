@@ -9,8 +9,8 @@ import dotenv from "dotenv";
 import {
   securityHeaders,
   compress,
-  sanitize,
   xssProtect,
+  lightSanitize,
 } from "./middlewares/security.middleware.js";
 import { apiRateLimiter } from "./middlewares/rateLimiter.middleware.js";
 import { notFound, errorHandler } from "./middlewares/error.middleware.js";
@@ -37,7 +37,7 @@ const app = express();
 // Security middleware
 app.use(securityHeaders);
 app.use(xssProtect);
-app.use(sanitize);
+app.use(lightSanitize);
 
 // Compression
 app.use(compress);

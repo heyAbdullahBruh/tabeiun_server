@@ -295,20 +295,272 @@ export const getAdminActivityLogs = async (adminId, options = {}) => {
 /**
  * Clean up old activity logs (keep last 6 months)
  */
-export const cleanupOldActivityLogs = async () => {
+// src/services/ActivityLogService.js - Add these functions
+
+/**
+ * Get cutoff date based on period
+ * @param {string} period - 'day', 'week', '15days', 'month', '6months', 'year', 'all'
+ * @returns {Date|null} - Cutoff date or null for 'all'
+ */
+const getCutoffDate = (period) => {
+  if (period === "all") return null;
+
+  const cutoffDate = new Date();
+
+  switch (period) {
+    case "day":
+      cutoffDate.setDate(cutoffDate.getDate() - 1);
+      break;
+    case "week":
+      cutoffDate.setDate(cutoffDate.getDate() - 7);
+      break;
+    case "15days":
+      cutoffDate.setDate(cutoffDate.getDate() - 15);
+      break;
+    case "month":
+      cutoffDate.setMonth(cutoffDate.getMonth() - 1);
+      break;
+    case "6months":
+      cutoffDate.setMonth(cutoffDate.getMonth() - 6);
+      break;
+    case "year":
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - 1);
+      break;
+    default:
+      throw new Error(
+        "Invalid period. Use: day, week, 15days, month, 6months, year, or all",
+      );
+  }
+
+  return cutoffDate;
+};
+
+/**
+ * Delete activity logs by time period
+ * @param {string} period - 'day', 'week', '15days', 'month', '6months', 'year', 'all'
+ * @returns {Promise<Object>} - Result with deleted count
+ */
+export const deleteActivityLogsByPeriod = async (period) => {
   try {
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const validPeriods = [
+      "day",
+      "week",
+      "15days",
+      "month",
+      "6months",
+      "year",
+      "all",
+    ];
+
+    if (!validPeriods.includes(period)) {
+      throw new Error(
+        "Invalid period. Use: day, week, 15days, month, 6months, year, or all",
+      );
+    }
+
+    let result;
+
+    if (period === "all") {
+      // Delete all activity logs
+      result = await AdminActivityLog.deleteMany({});
+      console.log(`Deleted all ${result.deletedCount} activity logs`);
+    } else {
+      // Delete by period
+      const cutoffDate = getCutoffDate(period);
+      result = await AdminActivityLog.deleteMany({
+        timestamp: { $lt: cutoffDate },
+      });
+      console.log(
+        `Deleted ${result.deletedCount} activity logs older than ${period}`,
+      );
+    }
+
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+      period: period,
+      cutoffDate: period === "all" ? null : getCutoffDate(period),
+    };
+  } catch (error) {
+    throw new Error(`Failed to delete activity logs: ${error.message}`);
+  }
+};
+
+/**
+ * Delete single activity log by ID
+ * @param {string} logId - Activity log ID
+ * @returns {Promise<Object>} - Deleted log details
+ */
+export const deleteActivityLogById = async (logId) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(logId)) {
+      throw new Error("Invalid log ID format");
+    }
+
+    const deletedLog = await AdminActivityLog.findByIdAndDelete(logId);
+
+    if (!deletedLog) {
+      throw new Error("Activity log not found");
+    }
+
+    return {
+      success: true,
+      deletedLog: deletedLog,
+      deletedLogId: logId,
+    };
+  } catch (error) {
+    throw new Error(`Failed to delete activity log: ${error.message}`);
+  }
+};
+
+/**
+ * Delete multiple activity logs by IDs
+ * @param {Array<string>} logIds - Array of activity log IDs
+ * @returns {Promise<Object>} - Result with deleted count
+ */
+export const deleteMultipleActivityLogs = async (logIds) => {
+  try {
+    if (!Array.isArray(logIds) || logIds.length === 0) {
+      throw new Error("Please provide an array of log IDs");
+    }
+
+    // Validate all IDs
+    const invalidIds = logIds.filter(
+      (id) => !mongoose.Types.ObjectId.isValid(id),
+    );
+    if (invalidIds.length > 0) {
+      throw new Error(`Invalid log ID format for: ${invalidIds.join(", ")}`);
+    }
 
     const result = await AdminActivityLog.deleteMany({
-      timestamp: { $lt: sixMonthsAgo },
+      _id: { $in: logIds },
     });
 
-    console.log(`Cleaned up ${result.deletedCount} old activity logs`);
-    return result;
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+      deletedIds: logIds,
+    };
   } catch (error) {
-    console.error("Failed to cleanup activity logs:", error.message);
-    throw new Error(`Failed to cleanup activity logs: ${error.message}`);
+    throw new Error(
+      `Failed to delete multiple activity logs: ${error.message}`,
+    );
+  }
+};
+
+/**
+ * Get activity log statistics by date range
+ * @param {string} period - 'day', 'week', 'month', 'year'
+ * @returns {Promise<Object>} - Statistics about activity logs
+ */
+export const getActivityLogStats = async (period = "month") => {
+  try {
+    const cutoffDate = getCutoffDate(
+      period === "day"
+        ? "day"
+        : period === "week"
+          ? "week"
+          : period === "month"
+            ? "month"
+            : "year",
+    );
+
+    const stats = await AdminActivityLog.aggregate([
+      {
+        $facet: {
+          totalCount: [{ $count: "count" }],
+          byActionType: [
+            {
+              $group: {
+                _id: "$actionType",
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { count: -1 } },
+          ],
+          byAdmin: [
+            {
+              $group: {
+                _id: "$adminId",
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $lookup: {
+                from: "admins",
+                localField: "_id",
+                foreignField: "_id",
+                as: "adminInfo",
+              },
+            },
+            { $unwind: "$adminInfo" },
+            {
+              $project: {
+                adminName: "$adminInfo.name",
+                adminEmail: "$adminInfo.email",
+                count: 1,
+              },
+            },
+            { $sort: { count: -1 } },
+            { $limit: 5 },
+          ],
+          oldLogsCount: [
+            {
+              $match: {
+                timestamp: { $lt: cutoffDate },
+              },
+            },
+            { $count: "count" },
+          ],
+        },
+      },
+    ]);
+
+    return {
+      success: true,
+      stats: {
+        total: stats[0].totalCount[0]?.count || 0,
+        byActionType: stats[0].byActionType,
+        topAdmins: stats[0].byAdmin,
+        logsOlderThanPeriod: stats[0].oldLogsCount[0]?.count || 0,
+      },
+      period,
+    };
+  } catch (error) {
+    throw new Error(`Failed to get activity log stats: ${error.message}`);
+  }
+};
+
+/**
+ * Cleanup old logs automatically based on retention policy
+ * @param {string} retentionPeriod - 'month', '6months', 'year'
+ * @returns {Promise<Object>} - Cleanup result
+ */
+export const autoCleanupActivityLogs = async (retentionPeriod = "6months") => {
+  try {
+    const validPeriods = ["month", "6months", "year"];
+
+    if (!validPeriods.includes(retentionPeriod)) {
+      throw new Error("Invalid retention period. Use: month, 6months, or year");
+    }
+
+    const cutoffDate = getCutoffDate(retentionPeriod);
+    const result = await AdminActivityLog.deleteMany({
+      timestamp: { $lt: cutoffDate },
+    });
+
+    console.log(
+      `Auto cleanup: Deleted ${result.deletedCount} logs older than ${retentionPeriod}`,
+    );
+
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+      retentionPeriod: retentionPeriod,
+      cutoffDate: cutoffDate,
+    };
+  } catch (error) {
+    throw new Error(`Failed to auto cleanup activity logs: ${error.message}`);
   }
 };
 
@@ -362,6 +614,25 @@ export const exportActivityLogsToCSV = async (filter = {}) => {
   }
 };
 export const getUnreadNotifications = async (adminId, limit = 20) => {
+  try {
+    const notifications = await AdminActivityLog.find({
+      adminId: new mongoose.Types.ObjectId(adminId),
+      isNotified: true,
+      isRead: { $ne: true },
+    })
+      .sort("-timestamp")
+      .limit(limit)
+      .populate("adminId", "name email")
+      .lean();
+    console.log("Fetched notifications:", notifications);
+    return notifications;
+  } catch (error) {
+    console.error("Failed to fetch unread notifications:", error);
+    return [];
+  }
+};
+
+export const getAllNotifications = async (adminId, limit = 20) => {
   try {
     const notifications = await AdminActivityLog.find({
       adminId: { $ne: new mongoose.Types.ObjectId(adminId) },
@@ -437,7 +708,11 @@ export default {
   getActivityLogs,
   getActivitySummary,
   getAdminActivityLogs,
-  cleanupOldActivityLogs,
+  deleteActivityLogsByPeriod,
+  deleteActivityLogById,
+  deleteMultipleActivityLogs,
+  getActivityLogStats,
+  autoCleanupActivityLogs,
   getActivityLogById,
   exportActivityLogsToCSV,
   getUnreadNotifications,
