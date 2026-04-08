@@ -292,16 +292,6 @@ export const getAdminActivityLogs = async (adminId, options = {}) => {
   }
 };
 
-/**
- * Clean up old activity logs (keep last 6 months)
- */
-// src/services/ActivityLogService.js - Add these functions
-
-/**
- * Get cutoff date based on period
- * @param {string} period - 'day', 'week', '15days', 'month', '6months', 'year', 'all'
- * @returns {Date|null} - Cutoff date or null for 'all'
- */
 const getCutoffDate = (period) => {
   if (period === "all") return null;
 

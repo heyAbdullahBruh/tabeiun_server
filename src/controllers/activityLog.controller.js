@@ -43,7 +43,7 @@ export const getAllActivityLogs = async (req, res) => {
     return paginationResponse(
       res,
       result.data,
-      result.pagination.total,
+      result.pagination,
       page,
       limit,
       "Activity logs fetched successfully",
