@@ -1,3 +1,4 @@
+import Admin from "../models/Admin.model.js";
 import {
   getUnreadNotifications,
   markNotificationAsRead,
