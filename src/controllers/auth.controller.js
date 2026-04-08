@@ -131,7 +131,7 @@ export const refreshToken = async (req, res) => {
   try {
     // Get refresh token from cookie only
     const refreshToken = req.cookies?.refreshToken;
-
+    console.log("Received refresh token:", refreshToken);
     if (!refreshToken) {
       return errorResponse(res, "Refresh token required", 401);
     }
