@@ -35,8 +35,8 @@ export const verifyRefreshToken = (token) => {
 export const setRefreshTokenCookie = (res, refreshToken) => {
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -46,8 +46,8 @@ export const setRefreshTokenCookie = (res, refreshToken) => {
 export const clearRefreshTokenCookie = (res) => {
   res.clearCookie("refreshToken", {
     httpOnly: true,
-    secure: false,
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   });

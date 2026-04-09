@@ -75,7 +75,7 @@ export const markAsRead = async (req, res) => {
     const { notificationId } = req.params;
     const adminId = req.admin._id;
 
-    console.log({ notificationId, adminId });
+    // console.log({ notificationId, adminId });
 
     await markNotificationAsRead(notificationId, adminId);
 

@@ -614,7 +614,6 @@ export const getUnreadNotifications = async (adminId, limit = 20) => {
       .limit(limit)
       .populate("adminId", "name email")
       .lean();
-    console.log("Fetched notifications:", notifications);
     return notifications;
   } catch (error) {
     console.error("Failed to fetch unread notifications:", error);

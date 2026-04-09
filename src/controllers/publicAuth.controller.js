@@ -16,45 +16,48 @@ export const googleAuthCallback = async (req, res) => {
     const { code } = req.query;
 
     // Exchange code for tokens
-    const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.GOOGLE_CALLBACK_URL,
-      grant_type: 'authorization_code'
-    });
+    const tokenResponse = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      {
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: process.env.GOOGLE_CALLBACK_URL,
+        grant_type: "authorization_code",
+      },
+    );
 
     const { access_token } = tokenResponse.data;
 
     // Get user info from Google
-    const userResponse = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${access_token}` }
-    });
+    const userResponse = await axios.get(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      {
+        headers: { Authorization: `Bearer ${access_token}` },
+      },
+    );
 
     const { id, email, name, picture } = userResponse.data;
 
     // Find or create user
-    let user = await User.findOne({ 
-      $or: [
-        { provider: 'google', providerId: id },
-        { email }
-      ]
+    let user = await User.findOne({
+      $or: [{ provider: "google", providerId: id }, { email }],
     });
 
     if (!user) {
       user = await User.create({
         name,
         email,
-        provider: 'google',
+        provider: "google",
         providerId: id,
-        avatar: picture
+        avatar: picture,
       });
 
       // Send welcome email
       await emailService.sendWelcomeEmail(user);
-    } else if (user.provider !== 'google') {
+    } else if (user.provider !== "google") {
       // Update provider info if user exists with different provider
-      user.provider = 'google';
+      user.provider = "google";
       user.providerId = id;
       await user.save();
     }
@@ -67,7 +70,7 @@ export const googleAuthCallback = async (req, res) => {
     const { accessToken, refreshToken } = generateTokens({
       id: user._id,
       email: user.email,
-      role: user.role
+      role: user.role,
     });
 
     // Set refresh token in HTTP-only cookie
@@ -76,10 +79,14 @@ export const googleAuthCallback = async (req, res) => {
     // Redirect to frontend with access token in URL fragment
     // Using fragment so it's not sent to server
     const frontendUrl = process.env.PUBLIC_URL;
-    return res.redirect(`${frontendUrl}/auth/callback#accessToken=${accessToken}`);
+    return res.redirect(
+      `${frontendUrl}/auth/callback?accessToken=${accessToken}`,
+    );
   } catch (error) {
-    console.error('Google auth error:', error);
-    return res.redirect(`${process.env.PUBLIC_URL}/auth/callback?success=false&message=Authentication failed`);
+    console.error("Google auth error:", error);
+    return res.redirect(
+      `${process.env.PUBLIC_URL}/auth/callback?success=false&message=Authentication failed`,
+    );
   }
 };
 
@@ -149,7 +156,9 @@ export const facebookAuthCallback = async (req, res) => {
     // Set refresh token in HTTP-only cookie
     setRefreshTokenCookie(res, refreshToken);
     const frontendUrl = process.env.PUBLIC_URL;
-    return res.redirect(`${frontendUrl}/auth/callback#accessToken=${accessToken}`);
+    return res.redirect(
+      `${frontendUrl}/auth/callback?accessToken=${accessToken}`,
+    );
   } catch (error) {
     console.error("Facebook auth error:", error);
     return res.redirect(
@@ -185,7 +194,7 @@ export const refreshUserToken = async (req, res) => {
     const refreshToken = req.cookies?.refreshToken;
 
     if (!refreshToken) {
-      return errorResponse(res, 'Refresh token required', 401);
+      return errorResponse(res, "Refresh token required", 401);
     }
 
     // Verify refresh token
@@ -195,23 +204,27 @@ export const refreshUserToken = async (req, res) => {
     const user = await User.findById(decoded.id);
     if (!user || user.isBlocked) {
       clearRefreshTokenCookie(res);
-      return errorResponse(res, 'User not found or blocked', 401);
+      return errorResponse(res, "User not found or blocked", 401);
     }
 
     // Generate new access token only
     const newAccessToken = generateAccessTokenFromRefresh(refreshToken);
 
-    return successResponse(res, {
-      accessToken: newAccessToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar
-      }
-    }, 'Token refreshed');
+    return successResponse(
+      res,
+      {
+        accessToken: newAccessToken,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+        },
+      },
+      "Token refreshed",
+    );
   } catch (error) {
     clearRefreshTokenCookie(res);
-    return errorResponse(res, 'Invalid refresh token', 401);
+    return errorResponse(res, "Invalid refresh token", 401);
   }
 };
