@@ -29,7 +29,7 @@ export const sendEmail = async ({
   to,
   subject,
   html,
-  from = process.env.EMAIL_FROM,
+  from = `"Tabieiun DASH - Support" <${process.env.EMAIL_FROM}>`,
 }) => {
   try {
     const mailOptions = {

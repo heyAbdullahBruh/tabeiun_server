@@ -255,7 +255,7 @@ export const forgotPassword = async (req, res) => {
     const resetUrl = `${process.env.DASHBOARD_URL}/reset-password/${resetToken}`;
 
     // Send email with reset link
-    await emailService.sendPasswordResetEmail(admin, resetUrl);
+    emailService.sendPasswordResetEmail(admin, resetUrl);
 
     // Log activity
     await logAdminActivity({
