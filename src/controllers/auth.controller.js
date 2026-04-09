@@ -8,10 +8,9 @@ import {
 } from "../utils/jwt.utils.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
-import crypto from "crypto";
 import bcrypt from "bcrypt";
 import emailService from "../services/EmailService.js";
-
+import jwt from "jsonwebtoken";
 // Admin Login
 export const adminLogin = async (req, res) => {
   try {
@@ -63,7 +62,11 @@ export const adminLogin = async (req, res) => {
       actionType: "LOGIN",
       targetModel: "Admin",
       targetId: admin._id,
-      ipAddress: req.ip,
+      ipAddress:
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null),
       userAgent: req.get("user-agent"),
     });
 
@@ -101,7 +104,11 @@ export const adminLogout = async (req, res) => {
       actionType: "LOGOUT",
       targetModel: "Admin",
       targetId: admin._id,
-      ipAddress: req.ip,
+      ipAddress:
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null),
       userAgent: req.get("user-agent"),
     });
 
@@ -229,12 +236,13 @@ export const forgotPassword = async (req, res) => {
     }
 
     // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenHash = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
-
+    // const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetToken = jwt.sign(
+      { id: admin._id },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: "1h" },
+    );
+    const resetTokenHash = resetToken.split(".")[2]; // Use signature part as token hash
     // Set expiry (1 hour from now)
     const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
@@ -255,7 +263,11 @@ export const forgotPassword = async (req, res) => {
       actionType: "FORGOT_PASSWORD",
       targetModel: "Admin",
       targetId: admin._id,
-      ipAddress: req.ip,
+      ipAddress:
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null),
       userAgent: req.get("user-agent"),
     });
 
@@ -280,34 +292,29 @@ export const resetPassword = async (req, res) => {
     }
 
     // Hash the token to compare with stored hash
-    const resetTokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
+    const resetTokenHash = token?.split(".")[2]; // Extract signature part as token hash
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
     // Find admin with valid token
-    const admin = await Admin.findOne({
-      resetPasswordToken: resetTokenHash,
-      resetPasswordExpiry: { $gt: Date.now() },
-      isActive: true,
-    });
+    const admin =
+      (await Admin.findOne({
+        resetPasswordToken: resetTokenHash,
+        resetPasswordExpiry: { $gt: Date.now() },
+        isActive: true,
+      })) ||
+      (await Admin.findOne({
+        _id: decoded.id,
+        isActive: true,
+        resetPasswordExpiry: { $gt: Date.now() },
+      })); // Fallback to find by ID if token hash doesn't match (handles token rotation)
 
     if (!admin) {
-      return errorResponse(res, "Invalid or expired reset token", 400);
+      return errorResponse(res, "Invalid or expired reset request", 400);
     }
 
-    // Hash new password
-    const salt = await bcrypt.genSalt(
-      parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
-    );
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Update password and clear reset fields
-    admin.password = hashedPassword;
+    admin.password = password;
     admin.resetPasswordToken = undefined;
     admin.resetPasswordExpiry = undefined;
-    admin.refreshToken = undefined; // Clear refresh token to force re-login
-
+    admin.refreshToken = undefined;
     await admin.save();
 
     // Log activity
@@ -316,7 +323,11 @@ export const resetPassword = async (req, res) => {
       actionType: "RESET_PASSWORD",
       targetModel: "Admin",
       targetId: admin._id,
-      ipAddress: req.ip,
+      ipAddress:
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null),
       userAgent: req.get("user-agent"),
     });
 
@@ -392,7 +403,11 @@ export const changePassword = async (req, res) => {
       actionType: "CHANGE_PASSWORD",
       targetModel: "Admin",
       targetId: admin._id,
-      ipAddress: req.ip,
+      ipAddress:
+        req.ip ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        (req.connection.socket ? req.connection.socket.remoteAddress : null),
       userAgent: req.get("user-agent"),
     });
 

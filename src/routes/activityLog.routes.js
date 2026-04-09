@@ -19,7 +19,7 @@ import { isAdmin } from "../middlewares/role.middleware.js";
 const router = Router();
 
 // All activity log routes require admin authentication
-router.use(authenticateAdmin, isAdmin);
+router.use(authenticateAdmin);
 
 // GET routes
 router.get("/", getAllActivityLogs);
@@ -29,6 +29,7 @@ router.get("/admin/:adminId", AdminActivityLogs);
 router.get("/:logId", ActivityLogById);
 router.get("/export/csv", exportActivityLogs);
 
+router.use(isAdmin); // Only super admins can delete logs
 // DELETE routes (service-based)
 router.delete("/period/:period", deleteActivityLogsByPeriodController);
 router.delete("/:logId", deleteActivityLogByIdController);

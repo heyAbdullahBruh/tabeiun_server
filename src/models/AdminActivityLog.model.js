@@ -24,6 +24,9 @@ const activityLogSchema = new mongoose.Schema({
       "UNBLOCK_USER",
       "LOW_STOCK_ALERT",
       "BULK_NOTIFICATION",
+      "RESET_PASSWORD",
+      "FORGOT_PASSWORD",
+      "CHANGE_PASSWORD",
     ],
   },
   targetModel: {
