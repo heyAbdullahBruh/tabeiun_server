@@ -183,6 +183,108 @@ export const getProducts = async (req, res) => {
   }
 };
 
+export const searchProducts = async (req, res) => {
+  try {
+    const { q, page, limit, category, minPrice, maxPrice } = req.query;
+
+    if (!q || q.trim().length < 2) {
+      return errorResponse(
+        res,
+        "Search term must be at least 2 characters",
+        400,
+      );
+    }
+
+    const result = await productService.searchProducts(q, {
+      page,
+      limit,
+      category,
+      minPrice,
+      maxPrice,
+    });
+
+    return successResponse(res, result, "Products fetched successfully");
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+export const getFeaturedProducts = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const products = await productService.getFeaturedProducts(limit);
+    return successResponse(
+      res,
+      { products },
+      "Featured products fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+export const getTopSellingProducts = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const products = await productService.getTopSellingProducts(limit);
+    return successResponse(
+      res,
+      { products },
+      "Top selling products fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+export const getRecommendedProducts = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      // For guest users, return top rated products
+      const products = await productService.getTopRatedProducts(limit);
+      return successResponse(
+        res,
+        { products },
+        "Recommended products fetched successfully",
+      );
+    }
+
+    const products = await productService.getRecommendedProducts(userId, limit);
+    return successResponse(
+      res,
+      { products },
+      "Recommended products fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+export const getProductsByCategorySlug = async (req, res) => {
+  try {
+    const { categorySlug } = req.params;
+    const { page, limit, sortBy, minPrice, maxPrice } = req.query;
+
+    const result = await productService.getProductsByCategorySlug(
+      categorySlug,
+      {
+        page,
+        limit,
+        sortBy,
+        minPrice,
+        maxPrice,
+      },
+    );
+
+    return successResponse(res, result, "Products fetched successfully");
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Toggle Product Status
 export const toggleProductStatus = async (req, res) => {
   try {

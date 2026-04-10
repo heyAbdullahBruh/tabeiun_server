@@ -4,6 +4,7 @@ import { QueryBuilder } from "../utils/queryBuilder.js";
 import { generateUniqueSlug } from "../utils/slugGenerator.js";
 import { deleteFromImageKit } from "../config/imagekit.js";
 import Review from "../models/Review.model.js";
+import Category from "../models/Category.model.js";
 
 class ProductService extends BaseService {
   constructor() {
@@ -195,6 +196,256 @@ class ProductService extends BaseService {
       throw new Error(`Related products fetch failed: ${error.message}`);
     }
   }
+
+  async searchProducts(searchTerm, options = {}) {
+    try {
+      const { page = 1, limit = 20, category, minPrice, maxPrice } = options;
+
+      const filter = {
+        isPublished: true,
+        isDeleted: false,
+        $or: [
+          { name: { $regex: searchTerm, $options: "i" } },
+          { shortDescription: { $regex: searchTerm, $options: "i" } },
+          { fullDescription: { $regex: searchTerm, $options: "i" } },
+          { medicineBenefits: { $in: [new RegExp(searchTerm, "i")] } },
+          { diseaseTags: { $in: [new RegExp(searchTerm, "i")] } },
+          { ingredients: { $in: [new RegExp(searchTerm, "i")] } },
+        ],
+      };
+
+      if (category) filter.diseaseCategory = category;
+      if (minPrice || maxPrice) {
+        filter.$expr = {
+          $cond: {
+            if: {
+              $and: [
+                { $ne: ["$discountPrice", null] },
+                { $lt: ["$discountPrice", "$price"] },
+              ],
+            },
+            then: {
+              $and: [
+                { $gte: ["$discountPrice", minPrice || 0] },
+                { $lte: ["$discountPrice", maxPrice || Infinity] },
+              ],
+            },
+            else: {
+              $and: [
+                { $gte: ["$price", minPrice || 0] },
+                { $lte: ["$price", maxPrice || Infinity] },
+              ],
+            },
+          },
+        };
+      }
+
+      const products = await Product.find(filter)
+        .populate("diseaseCategory", "name slug")
+        .sort("-createdAt")
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .lean();
+
+      const total = await Product.countDocuments(filter);
+
+      return {
+        products,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit)),
+        },
+      };
+    } catch (error) {
+      throw new Error(`Product search failed: ${error.message}`);
+    }
+  }
+
+  async getFeaturedProducts(limit = 10) {
+    try {
+      const products = await Product.find({
+        isFeatured: true,
+        isPublished: true,
+        isDeleted: false,
+      })
+        .populate("diseaseCategory", "name slug")
+        .sort("-createdAt")
+        .limit(parseInt(limit))
+        .lean();
+
+      return products;
+    } catch (error) {
+      throw new Error(`Failed to fetch featured products: ${error.message}`);
+    }
+  }
+
+  getTopSellingProducts = async (limit = 10) => {
+    try {
+      const products = await Product.find({
+        isPublished: true,
+        isDeleted: false,
+      })
+        .populate("diseaseCategory", "name slug")
+        .sort("-totalSold")
+        .limit(parseInt(limit))
+        .lean();
+
+      return products;
+    } catch (error) {
+      throw new Error(`Failed to fetch top selling products: ${error.message}`);
+    }
+  };
+
+  getRecommendedProducts = async (userId, limit = 10) => {
+    try {
+      // Get user's order history
+      const userOrders = await Order.find({ user: userId, status: "Delivered" })
+        .populate("products.product")
+        .limit(5);
+
+      // Extract categories and tags from user's purchase history
+      const purchasedCategories = new Set();
+      const purchasedTags = new Set();
+
+      userOrders.forEach((order) => {
+        order.products.forEach((item) => {
+          if (item.product) {
+            if (item.product.diseaseCategory) {
+              purchasedCategories.add(item.product.diseaseCategory.toString());
+            }
+            item.product.diseaseTags?.forEach((tag) => purchasedTags.add(tag));
+          }
+        });
+      });
+
+      // Build recommendation query
+      const filter = {
+        isPublished: true,
+        isDeleted: false,
+        _id: { $nin: await getPurchasedProductIds(userId) }, // Exclude purchased products
+      };
+
+      if (purchasedCategories.size > 0) {
+        filter.diseaseCategory = { $in: Array.from(purchasedCategories) };
+      }
+
+      if (purchasedTags.size > 0) {
+        filter.diseaseTags = { $in: Array.from(purchasedTags) };
+      }
+
+      const products = await Product.find(filter)
+        .populate("diseaseCategory", "name slug")
+        .sort("-ratingAverage", "-totalSold")
+        .limit(parseInt(limit))
+        .lean();
+
+      // If not enough recommendations, get top rated products
+      if (products.length < parseInt(limit)) {
+        const fallbackProducts = await Product.find({
+          isPublished: true,
+          isDeleted: false,
+          _id: { $nin: await getPurchasedProductIds(userId) },
+        })
+          .sort("-ratingAverage", "-totalSold")
+          .limit(parseInt(limit) - products.length)
+          .lean();
+
+        products.push(...fallbackProducts);
+      }
+
+      return products;
+    } catch (error) {
+      throw new Error(`Failed to fetch recommended products: ${error.message}`);
+    }
+  };
+
+  // Helper function
+  getPurchasedProductIds = async (userId) => {
+    const orders = await Order.find({ user: userId, status: "Delivered" });
+    const productIds = [];
+    orders.forEach((order) => {
+      order.products.forEach((item) => {
+        productIds.push(item.product);
+      });
+    });
+    return productIds;
+  };
+
+  getProductsByCategorySlug = async (categorySlug, options = {}) => {
+    try {
+      const {
+        page = 1,
+        limit = 20,
+        sortBy = "-createdAt",
+        minPrice,
+        maxPrice,
+      } = options;
+
+      // Find category by slug
+      const category = await Category.findOne({
+        slug: categorySlug,
+        isActive: true,
+      });
+      if (!category) {
+        throw new Error("Category not found");
+      }
+
+      const filter = {
+        diseaseCategory: category._id,
+        isPublished: true,
+        isDeleted: false,
+      };
+
+      if (minPrice || maxPrice) {
+        filter.$expr = {
+          $cond: {
+            if: {
+              $and: [
+                { $ne: ["$discountPrice", null] },
+                { $lt: ["$discountPrice", "$price"] },
+              ],
+            },
+            then: {
+              $and: [
+                { $gte: ["$discountPrice", minPrice || 0] },
+                { $lte: ["$discountPrice", maxPrice || Infinity] },
+              ],
+            },
+            else: {
+              $and: [
+                { $gte: ["$price", minPrice || 0] },
+                { $lte: ["$price", maxPrice || Infinity] },
+              ],
+            },
+          },
+        };
+      }
+
+      const products = await Product.find(filter)
+        .populate("diseaseCategory", "name slug")
+        .sort(sortBy)
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .lean();
+
+      const total = await Product.countDocuments(filter);
+
+      return {
+        category,
+        products,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit)),
+        },
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch products by category: ${error.message}`);
+    }
+  };
 }
 
 export default new ProductService();

@@ -40,10 +40,10 @@ router.get("/facebook", (req, res) => {
 router.get("/facebook/callback", facebookAuthCallback);
 
 // Token refresh
-router.post("/refresh-token", refreshUserToken);
+router.post("/user-refresh-token", refreshUserToken);
 
 // Protected routes
-router.get("/logout", authenticateUser, userLogout);
-router.get("/me", authenticateUser, getCurrentUser);
+router.get("/user-logout", authenticateUser, userLogout);
+router.get("/user-me", authenticateUser, getCurrentUser);
 
 export default router;

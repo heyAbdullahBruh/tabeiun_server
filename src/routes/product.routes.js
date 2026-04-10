@@ -8,8 +8,16 @@ import {
   getProducts,
   toggleProductStatus,
   bulkDeleteProducts,
+  getProductsByCategorySlug,
+  getTopSellingProducts,
+  getFeaturedProducts,
+  searchProducts,
+  getRecommendedProducts,
 } from "../controllers/product.controller.js";
-import { authenticateAdmin } from "../middlewares/auth.middleware.js";
+import {
+  authenticateAdmin,
+  authenticateUser,
+} from "../middlewares/auth.middleware.js";
 import { isAdminOrModerator } from "../middlewares/role.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import {
@@ -29,6 +37,11 @@ const router = Router();
 // Public routes
 router.get("/", validate(getProductsValidator), getProducts);
 router.get("/:slugOrId", getProduct);
+router.get("/search", searchProducts);
+router.get("/featured", getFeaturedProducts);
+router.get("/top-selling", getTopSellingProducts);
+router.get("/category/:categorySlug", getProductsByCategorySlug);
+router.get("/recommended", authenticateUser, getRecommendedProducts);
 
 // Protected routes (Admin/Moderator only)
 router.post(
