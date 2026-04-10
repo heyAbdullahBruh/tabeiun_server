@@ -6,13 +6,31 @@ import {
   paginationResponse,
 } from "../utils/responseFormatter.js";
 
-// Add to Favourites
+// Helper function to get favourite filter
+const getFavouriteFilter = (req) => {
+  if (req.user) {
+    return { user: req.user._id };
+  }
+  if (req.sessionId) {
+    return { sessionId: req.sessionId };
+  }
+  return null;
+};
+
+// Add to Favourites - UPDATED
 export const addToFavourites = async (req, res) => {
   try {
     const { productId } = req.params;
-    const userId = req.user._id;
+    const filter = getFavouriteFilter(req);
 
-    // Check if product exists
+    if (!filter) {
+      return errorResponse(
+        res,
+        "Session ID required for guest favourites",
+        400,
+      );
+    }
+
     const product = await Product.findOne({
       _id: productId,
       isPublished: true,
@@ -23,20 +41,12 @@ export const addToFavourites = async (req, res) => {
       return errorResponse(res, "Product not found", 404);
     }
 
-    // Check if already in favourites
-    const existing = await Favourite.findOne({
-      user: userId,
-      product: productId,
-    });
+    const existing = await Favourite.findOne({ ...filter, product: productId });
     if (existing) {
       return errorResponse(res, "Product already in favourites", 400);
     }
 
-    // Add to favourites
-    await Favourite.create({
-      user: userId,
-      product: productId,
-    });
+    await Favourite.create({ ...filter, product: productId });
 
     return successResponse(res, null, "Added to favourites successfully");
   } catch (error) {
@@ -44,14 +54,18 @@ export const addToFavourites = async (req, res) => {
   }
 };
 
-// Remove from Favourites
+// Remove from Favourites - UPDATED
 export const removeFromFavourites = async (req, res) => {
   try {
     const { productId } = req.params;
-    const userId = req.user._id;
+    const filter = getFavouriteFilter(req);
+
+    if (!filter) {
+      return errorResponse(res, "Favourites not found", 404);
+    }
 
     const result = await Favourite.findOneAndDelete({
-      user: userId,
+      ...filter,
       product: productId,
     });
 
@@ -65,13 +79,17 @@ export const removeFromFavourites = async (req, res) => {
   }
 };
 
-// Get User's Favourites
+// Get User's Favourites - UPDATED
 export const getFavourites = async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
-    const userId = req.user._id;
+    const filter = getFavouriteFilter(req);
 
-    const favourites = await Favourite.find({ user: userId })
+    if (!filter) {
+      return successResponse(res, { favourites: [], total: 0, pagination: {} });
+    }
+
+    const favourites = await Favourite.find(filter)
       .populate({
         path: "product",
         match: { isPublished: true, isDeleted: false },
@@ -82,10 +100,8 @@ export const getFavourites = async (req, res) => {
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
 
-    // Filter out products that might have been deleted/unpublished
     const validFavourites = favourites.filter((f) => f.product !== null);
-
-    const total = await Favourite.countDocuments({ user: userId });
+    const total = await Favourite.countDocuments(filter);
 
     return paginationResponse(
       res,
@@ -100,14 +116,18 @@ export const getFavourites = async (req, res) => {
   }
 };
 
-// Check if product is in user's favourites
+// Check favourite - UPDATED
 export const checkFavourite = async (req, res) => {
   try {
     const { productId } = req.params;
-    const userId = req.user._id;
+    const filter = getFavouriteFilter(req);
+
+    if (!filter) {
+      return successResponse(res, { isFavourite: false });
+    }
 
     const favourite = await Favourite.findOne({
-      user: userId,
+      ...filter,
       product: productId,
     });
 
@@ -119,27 +139,66 @@ export const checkFavourite = async (req, res) => {
   }
 };
 
-// Get favourite count for product
+// Get favourite count - KEEP AS IS (public endpoint)
 export const getFavouriteCount = async (req, res) => {
   try {
     const { productId } = req.params;
-
     const count = await Favourite.countDocuments({ product: productId });
-
     return successResponse(res, { count });
   } catch (error) {
     return errorResponse(res, error.message);
   }
 };
 
-// Clear all favourites
+// Clear all favourites - UPDATED
 export const clearFavourites = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const filter = getFavouriteFilter(req);
 
-    await Favourite.deleteMany({ user: userId });
+    if (!filter) {
+      return successResponse(res, null, "All favourites cleared");
+    }
+
+    await Favourite.deleteMany(filter);
 
     return successResponse(res, null, "All favourites cleared");
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
+// Merge guest favourites with user - ADD THIS
+export const mergeFavourites = async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const userId = req.user._id;
+
+    if (!sessionId) {
+      return errorResponse(res, "Session ID required", 400);
+    }
+
+    // Find guest favourites
+    const guestFavourites = await Favourite.find({ sessionId });
+
+    // Add each guest favourite to user if not already exists
+    for (const guestFav of guestFavourites) {
+      const exists = await Favourite.findOne({
+        user: userId,
+        product: guestFav.product,
+      });
+
+      if (!exists) {
+        await Favourite.create({
+          user: userId,
+          product: guestFav.product,
+        });
+      }
+    }
+
+    // Delete guest favourites after merge
+    await Favourite.deleteMany({ sessionId });
+
+    return successResponse(res, null, "Favourites merged successfully");
   } catch (error) {
     return errorResponse(res, error.message);
   }

@@ -17,12 +17,11 @@ import { validate } from "../middlewares/validation.middleware.js";
 import {
   addToCartValidator,
   updateCartItemValidator,
-  mergeCartValidator,
 } from "../validators/cart.validator.js";
 
 const router = Router();
 
-// Guest routes (with sessionId) - No authentication required
+// Guest routes (with sessionId)
 router.get("/", optionalAuth, getCart);
 router.post("/items", optionalAuth, validate(addToCartValidator), addToCart);
 router.put(
@@ -33,14 +32,9 @@ router.put(
 );
 router.delete("/items/:itemId", optionalAuth, removeFromCart);
 router.delete("/clear", optionalAuth, clearCart);
-router.get("/validate-checkout", authenticateUser, validateCartForCheckout); // Checkout needs auth
 
 // Authenticated only routes
-router.post(
-  "/merge",
-  authenticateUser,
-  validate(mergeCartValidator),
-  mergeCart,
-);
+router.post("/merge", authenticateUser, mergeCart);
+router.get("/validate-checkout", authenticateUser, validateCartForCheckout);
 
 export default router;

@@ -7,14 +7,18 @@ import {
   checkFavourite,
   getFavouriteCount,
   clearFavourites,
+  mergeFavourites,
 } from "../controllers/favourite.controller.js";
-import { optionalAuth } from "../middlewares/auth.middleware.js";
+import {
+  authenticateUser,
+  optionalAuth,
+} from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import { productIdValidator } from "../validators/favourite.validator.js";
 
 const router = Router();
 
-// Guest routes (with sessionId) - No authentication required
+// Guest routes (with sessionId)
 router.get("/", optionalAuth, getFavourites);
 router.post(
   "/:productId",
@@ -34,14 +38,16 @@ router.get(
   validate(productIdValidator),
   checkFavourite,
 );
+router.delete("/clear/all", optionalAuth, clearFavourites);
+
+// Public route
 router.get(
   "/count/:productId",
-  optionalAuth,
   validate(productIdValidator),
   getFavouriteCount,
 );
-router.delete("/clear/all", optionalAuth, clearFavourites);
 
-// No merge endpoint needed - implement in cart controller pattern
+// Authenticated only routes
+router.post("/merge", authenticateUser, mergeFavourites);
 
 export default router;
