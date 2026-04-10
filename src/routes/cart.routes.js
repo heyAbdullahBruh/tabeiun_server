@@ -1,4 +1,3 @@
-// src/routes/cart.routes.js - UPDATED
 import { Router } from "express";
 import {
   getCart,

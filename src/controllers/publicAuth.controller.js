@@ -76,11 +76,20 @@ export const googleAuthCallback = async (req, res) => {
     // Set refresh token in HTTP-only cookie
     setRefreshTokenCookie(res, refreshToken);
 
-    // Redirect to frontend with access token in URL fragment
-    // Using fragment so it's not sent to server
+    const userData = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
+    };
+
+    // Encode user data for URL
+    const encodedUserData = encodeURIComponent(JSON.stringify(userData));
+
     const frontendUrl = process.env.PUBLIC_URL;
     return res.redirect(
-      `${frontendUrl}/auth/callback?accessToken=${accessToken}`,
+      `${frontendUrl}/auth/callback?accessToken=${accessToken}&user=${encodedUserData}`,
     );
   } catch (error) {
     console.error("Google auth error:", error);
@@ -153,11 +162,21 @@ export const facebookAuthCallback = async (req, res) => {
       role: user.role,
     });
 
+    const userData = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      role: user.role,
+    };
+
+    // Encode user data for URL
+    const encodedUserData = encodeURIComponent(JSON.stringify(userData));
     // Set refresh token in HTTP-only cookie
     setRefreshTokenCookie(res, refreshToken);
     const frontendUrl = process.env.PUBLIC_URL;
     return res.redirect(
-      `${frontendUrl}/auth/callback?accessToken=${accessToken}`,
+      `${frontendUrl}/auth/callback?accessToken=${accessToken}&user=${encodedUserData}`,
     );
   } catch (error) {
     console.error("Facebook auth error:", error);

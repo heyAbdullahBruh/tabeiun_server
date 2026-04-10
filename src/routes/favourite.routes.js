@@ -1,4 +1,3 @@
-// src/routes/favourite.routes.js - UPDATED
 import { Router } from "express";
 import {
   addToFavourites,
