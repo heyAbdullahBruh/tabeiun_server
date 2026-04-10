@@ -75,3 +75,36 @@ export const authenticateUser = async (req, res, next) => {
     return errorResponse(res, "Authentication failed", 500);
   }
 };
+
+export const optionalAuth = async (req, res, next) => {
+  try {
+    // Try to get token from header
+    let token = null;
+    if (req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    // If token exists and is valid, get user
+    if (token) {
+      try {
+        const decoded = verifyAccessToken(token);
+        const user = await User.findById(decoded.id);
+        if (user && !user.isBlocked) {
+          req.user = user;
+        }
+      } catch (error) {
+        // Token invalid - continue as guest
+      }
+    }
+
+    // Always get sessionId from header (for guests)
+    const sessionId = req.headers["x-session-id"];
+    if (sessionId) {
+      req.sessionId = sessionId;
+    }
+
+    next();
+  } catch (error) {
+    next();
+  }
+};

@@ -1,4 +1,4 @@
-// src/routes/favourite.routes.js - WITH VALIDATORS
+// src/routes/favourite.routes.js - UPDATED
 import { Router } from "express";
 import {
   addToFavourites,
@@ -8,39 +8,40 @@ import {
   getFavouriteCount,
   clearFavourites,
 } from "../controllers/favourite.controller.js";
-import { authenticateUser } from "../middlewares/auth.middleware.js";
+import { optionalAuth } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import { productIdValidator } from "../validators/favourite.validator.js";
 
 const router = Router();
 
-// All favourite routes require authentication
-router.use(authenticateUser);
-
-// Get user's favourites
-router.get("/", getFavourites);
-
-// Add product to favourites
-router.post("/:productId", validate(productIdValidator), addToFavourites);
-
-// Remove product from favourites
+// Guest routes (with sessionId) - No authentication required
+router.get("/", optionalAuth, getFavourites);
+router.post(
+  "/:productId",
+  optionalAuth,
+  validate(productIdValidator),
+  addToFavourites,
+);
 router.delete(
   "/:productId",
+  optionalAuth,
   validate(productIdValidator),
   removeFromFavourites,
 );
-
-// Check if product is in favourites
-router.get("/check/:productId", validate(productIdValidator), checkFavourite);
-
-// Get favourite count for product
+router.get(
+  "/check/:productId",
+  optionalAuth,
+  validate(productIdValidator),
+  checkFavourite,
+);
 router.get(
   "/count/:productId",
+  optionalAuth,
   validate(productIdValidator),
   getFavouriteCount,
 );
+router.delete("/clear/all", optionalAuth, clearFavourites);
 
-// Clear all favourites
-router.delete("/clear/all", clearFavourites);
+// No merge endpoint needed - implement in cart controller pattern
 
 export default router;

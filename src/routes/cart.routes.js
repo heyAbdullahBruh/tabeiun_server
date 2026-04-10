@@ -1,4 +1,4 @@
-// src/routes/cart.routes.js - WITH VALIDATORS
+// src/routes/cart.routes.js - UPDATED
 import { Router } from "express";
 import {
   getCart,
@@ -9,7 +9,10 @@ import {
   mergeCart,
   validateCartForCheckout,
 } from "../controllers/cart.controller.js";
-import { authenticateUser } from "../middlewares/auth.middleware.js";
+import {
+  authenticateUser,
+  optionalAuth,
+} from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import {
   addToCartValidator,
@@ -19,28 +22,25 @@ import {
 
 const router = Router();
 
-// All cart routes require authentication
-router.use(authenticateUser);
+// Guest routes (with sessionId) - No authentication required
+router.get("/", optionalAuth, getCart);
+router.post("/items", optionalAuth, validate(addToCartValidator), addToCart);
+router.put(
+  "/items/:itemId",
+  optionalAuth,
+  validate(updateCartItemValidator),
+  updateCartItem,
+);
+router.delete("/items/:itemId", optionalAuth, removeFromCart);
+router.delete("/clear", optionalAuth, clearCart);
+router.get("/validate-checkout", authenticateUser, validateCartForCheckout); // Checkout needs auth
 
-// Get user cart
-router.get("/", getCart);
-
-// Add item to cart
-router.post("/items", validate(addToCartValidator), addToCart);
-
-// Update cart item quantity
-router.put("/items/:itemId", validate(updateCartItemValidator), updateCartItem);
-
-// Remove item from cart
-router.delete("/items/:itemId", removeFromCart);
-
-// Clear entire cart
-router.delete("/clear", clearCart);
-
-// Merge guest cart with user cart
-router.post("/merge", validate(mergeCartValidator), mergeCart);
-
-// Validate cart before checkout
-router.get("/validate-checkout", validateCartForCheckout);
+// Authenticated only routes
+router.post(
+  "/merge",
+  authenticateUser,
+  validate(mergeCartValidator),
+  mergeCart,
+);
 
 export default router;

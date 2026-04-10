@@ -27,7 +27,7 @@ const router = Router();
 router.get("/product/:productId", getProductReviews);
 
 // User authenticated routes
-router.post("/", authenticateUser, upload.single("image"), createReview);
+router.post("/create", authenticateUser, upload.single("image"), createReview);
 router.get("/my-reviews", authenticateUser, getUserReviews);
 router.put(
   "/:reviewId",
