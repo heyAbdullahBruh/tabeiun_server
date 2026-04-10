@@ -223,6 +223,169 @@ class OrderService extends BaseService {
     }
   }
 
+  calculateWorkingDaysDelivery = (startDate, workingDays) => {
+    const deliveryDate = new Date(startDate);
+    let daysAdded = 0;
+
+    while (daysAdded < workingDays) {
+      deliveryDate.setDate(deliveryDate.getDate() + 1);
+      const dayOfWeek = deliveryDate.getDay();
+      // Skip Saturday (6) and Sunday (0)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        daysAdded++;
+      }
+    }
+
+    return deliveryDate;
+  };
+
+  trackOrder = async (orderId, userId) => {
+    try {
+      const order = await Order.findOne({
+        orderId: orderId,
+        user: userId,
+      })
+        .populate("products.product", "name slug images price")
+        .populate("user", "name email phone")
+        .lean();
+
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      // Calculate estimated delivery date based on order status
+      let estimatedDelivery = null;
+      let deliveryMessage = "";
+
+      const createdAt = new Date(order.createdAt);
+
+      switch (order.status) {
+        case "Pending":
+          // Will be confirmed within 24 hours, then 2-3 working days delivery
+          const confirmDate = new Date(createdAt);
+          confirmDate.setDate(confirmDate.getDate() + 1);
+          estimatedDelivery = this.calculateWorkingDaysDelivery(confirmDate, 3);
+          deliveryMessage =
+            "Order will be confirmed within 24 hours. Delivery within 2-3 working days after confirmation.";
+          break;
+
+        case "Confirmed":
+          // 2-3 working days from confirmation
+          estimatedDelivery = this.calculateWorkingDaysDelivery(createdAt, 3);
+          deliveryMessage =
+            "Your order is confirmed. Expected delivery within 2-3 working days.";
+          break;
+
+        case "Processing":
+          // 2 working days from processing
+          estimatedDelivery = this.calculateWorkingDaysDelivery(createdAt, 2);
+          deliveryMessage =
+            "Your order is being processed. Expected delivery within 2 working days.";
+          break;
+
+        case "Shipped":
+          // 1-2 working days from shipping
+          estimatedDelivery = this.calculateWorkingDaysDelivery(createdAt, 2);
+          deliveryMessage =
+            "Your order has been shipped. Expected delivery within 1-2 working days.";
+          break;
+
+        case "Delivered":
+          estimatedDelivery = createdAt;
+          deliveryMessage =
+            "Your order has been delivered. Thank you for shopping with us!";
+          break;
+
+        case "Cancelled":
+          deliveryMessage = "This order has been cancelled.";
+          break;
+
+        default:
+          estimatedDelivery = this.calculateWorkingDaysDelivery(createdAt, 5);
+          deliveryMessage =
+            "Delivery within 2-3 working days after order confirmation.";
+      }
+
+      // Format date for better display
+      const formatDate = (date) => {
+        if (!date) return null;
+        return {
+          date: date,
+          formatted: date.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }),
+          dayName: date.toLocaleDateString("en-GB", { weekday: "long" }),
+          isWeekend: date.getDay() === 0 || date.getDay() === 6,
+        };
+      };
+
+      // Get timeline for frontend display
+      const timeline = order.timelineLogs.map((log) => ({
+        status: log.status,
+        date: log.date,
+        completed: true,
+        note: log.note,
+      }));
+
+      // Add estimated delivery to timeline if not delivered
+      if (
+        order.status !== "Delivered" &&
+        order.status !== "Cancelled" &&
+        estimatedDelivery
+      ) {
+        timeline.push({
+          status: "Estimated Delivery",
+          date: estimatedDelivery,
+          completed: false,
+          note: deliveryMessage,
+        });
+      }
+
+      // Calculate remaining days
+      let remainingDays = null;
+      if (
+        estimatedDelivery &&
+        estimatedDelivery > new Date() &&
+        order.status !== "Delivered"
+      ) {
+        const timeDiff = estimatedDelivery.getTime() - new Date().getTime();
+        remainingDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      }
+
+      return {
+        order: {
+          ...order,
+          estimatedDeliveryInfo: estimatedDelivery
+            ? formatDate(estimatedDelivery)
+            : null,
+          deliveryMessage,
+          remainingDays: remainingDays > 0 ? remainingDays : null,
+        },
+        estimatedDelivery:
+          estimatedDelivery && estimatedDelivery > new Date()
+            ? estimatedDelivery
+            : null,
+        timeline,
+        currentStatus: order.status,
+        statusHistory: order.timelineLogs,
+        trackingInfo: {
+          status: order.status,
+          lastUpdate:
+            order.timelineLogs[order.timelineLogs.length - 1]?.date ||
+            order.createdAt,
+          estimatedDelivery: estimatedDelivery
+            ? formatDate(estimatedDelivery)
+            : null,
+          remainingDays,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Failed to track order: ${error.message}`);
+    }
+  };
+
   validateStatusTransition(currentStatus, newStatus) {
     const validTransitions = {
       [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],

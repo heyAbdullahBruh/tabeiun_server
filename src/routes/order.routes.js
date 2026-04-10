@@ -4,6 +4,7 @@ import {
   getUserOrders,
   getUserOrder,
   cancelOrder,
+  trackOrder,
   getAllOrders,
   getOrderDetails,
   confirmOrder,
@@ -53,6 +54,7 @@ router.post(
   validate(orderIdValidator),
   cancelOrder,
 );
+router.get("/track/:orderId", authenticateUser, trackOrder);
 
 // ==========================================
 // ADMIN ROUTES

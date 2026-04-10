@@ -86,6 +86,24 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
+// Track Order (User)
+export const trackOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user._id;
+
+    const trackingInfo = await orderService.trackOrder(orderId, userId);
+
+    return successResponse(
+      res,
+      trackingInfo,
+      "Order tracking information fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Get All Orders (Admin/Moderator)
 export const getAllOrders = async (req, res) => {
   try {
