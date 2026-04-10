@@ -1,5 +1,3 @@
-// src/services/reviewService.js - Create new file
-
 import Review from "../models/Review.model.js";
 import Order from "../models/Order.model.js";
 import Product from "../models/Product.model.js";
