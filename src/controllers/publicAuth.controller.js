@@ -784,6 +784,10 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
+const shouldRotateRefreshToken = () => {
+  return Math.random() < 0.1; // 10% chance for demo - adjust as needed
+};
+
 export const refreshUserToken = async (req, res) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
@@ -801,7 +805,16 @@ export const refreshUserToken = async (req, res) => {
     }
 
     const newAccessToken = generateAccessTokenFromRefresh(refreshToken);
+    if (shouldRotateRefreshToken()) {
+      const { refreshToken: newRefreshToken } = generateTokens({
+        id: user._id,
+        email: user.email,
+        role: user.role,
+      });
 
+      // Set new refresh token cookie
+      setRefreshTokenCookie(res, newRefreshToken);
+    }
     return successResponse(
       res,
       {

@@ -71,13 +71,13 @@ export const addToCart = async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
     const filter = getCartFilter(req);
-    // console.log("Add to cart request:", {
-    //   productId,
-    //   quantity,
-    //   user: req.user,
-    //   sessionId: req.sessionId,
-    // });
+
     if (!filter) {
+      console.error(
+        "sessionId missing for guest cart",
+        req.user,
+        req.sessionId,
+      );
       return errorResponse(res, "Session ID required for guest cart", 400);
     }
     // console.log("Adding to cart:", { productId, quantity, filter });
@@ -92,6 +92,9 @@ export const addToCart = async (req, res) => {
     }
 
     if (product.stock < quantity) {
+      console.error(
+        `Not enough stock for product ${productId}. Requested: ${quantity}, Available: ${product.stock}`,
+      );
       return errorResponse(res, `Only ${product.stock} items available`, 400);
     }
 
@@ -137,6 +140,7 @@ export const addToCart = async (req, res) => {
       "Item added to cart",
     );
   } catch (error) {
+    console.error("Error adding to cart:", error);
     return errorResponse(res, error.message);
   }
 };
@@ -150,6 +154,7 @@ export const updateCartItem = async (req, res) => {
     const filter = getCartFilter(req);
 
     if (!filter) {
+      console.error("No cart filter found for request1");
       return errorResponse(res, "Cart not found", 404);
     }
 
@@ -159,6 +164,7 @@ export const updateCartItem = async (req, res) => {
 
     const cart = await Cart.findOne(filter);
     if (!cart) {
+      console.error("No cart filter found for request2");
       return errorResponse(res, "Cart not found", 404);
     }
 
@@ -167,11 +173,13 @@ export const updateCartItem = async (req, res) => {
     );
 
     if (itemIndex === -1) {
+      console.error("No cart filter found for request3");
       return errorResponse(res, "Item not found in cart", 404);
     }
 
     const product = await Product.findById(cart.items[itemIndex].product);
     if (!product) {
+      console.error("No cart filter found for request4");
       return errorResponse(res, "Product not found", 404);
     }
 

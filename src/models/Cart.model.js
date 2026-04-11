@@ -41,9 +41,8 @@ const cartSchema = new mongoose.Schema(
 // Ensure either user or sessionId exists
 cartSchema.pre("save", function (next) {
   if (!this.user && !this.sessionId) {
-    next(new Error("Either user or sessionId is required"));
+    throw new Error("Either user or sessionId is required");
   }
-  next();
 });
 
 // Compound index for faster lookups

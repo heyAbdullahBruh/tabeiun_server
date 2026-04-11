@@ -86,12 +86,8 @@ export const optionalAuth = async (req, res, next) => {
     // If token exists and is valid, get user
     if (token) {
       try {
-        console.log("Optional auth - token found:", token);
         const decoded = verifyAccessToken(token);
-        console.log(decoded);
-
         const user = await User.findById(decoded.id);
-        console.log("Optional auth - user found:", user ? user._id : "none");
         if (user && !user.isBlocked) {
           req.user = user;
         }
