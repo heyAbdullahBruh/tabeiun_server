@@ -1,4 +1,6 @@
+// src/models/User.model.js
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 
 const userSchema = new mongoose.Schema(
   {
@@ -15,14 +17,17 @@ const userSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    password: {
+      type: String,
+      select: false,
+    },
     provider: {
       type: String,
-      enum: ["google", "facebook"],
+      enum: ["google", "facebook", "email"],
       required: true,
     },
     providerId: {
       type: String,
-      required: true,
     },
     role: {
       type: String,
@@ -49,6 +54,38 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    hasSetPassword: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationCode: {
+      type: String,
+      select: false,
+    },
+    emailVerificationExpiry: {
+      type: Date,
+      select: false,
+    },
+    resetPasswordCode: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpiry: {
+      type: Date,
+      select: false,
+    },
+    lastPasswordResetRequest: {
+      type: Date,
+      select: false,
+    },
+    lastVerificationRequest: {
+      type: Date,
+      select: false,
+    },
     lastLogin: {
       type: Date,
     },
@@ -58,8 +95,32 @@ const userSchema = new mongoose.Schema(
   },
 );
 
+// Hash password before saving (only for email provider or when password is set)
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password") || !this.password) return next();
+
+  try {
+    const salt = await bcrypt.genSalt(
+      parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
+    );
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Compare password method
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password) return false;
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
 // Compound index for provider + providerId
-userSchema.index({ provider: 1, providerId: 1 }, { unique: true });
+userSchema.index(
+  { provider: 1, providerId: 1 },
+  { unique: true, partialFilterExpression: { providerId: { $exists: true } } },
+);
 userSchema.index({ email: 1, isBlocked: 1 });
 userSchema.index({ createdAt: -1 });
 

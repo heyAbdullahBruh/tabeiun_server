@@ -22,7 +22,7 @@ const router = Router();
 
 // Guest routes (with sessionId)
 router.get("/", optionalAuth, getCart);
-router.post("/items", optionalAuth, validate(addToCartValidator), addToCart);
+router.post("/add", optionalAuth, validate(addToCartValidator), addToCart);
 router.put(
   "/items/:itemId",
   optionalAuth,

@@ -71,11 +71,16 @@ export const addToCart = async (req, res) => {
   try {
     const { productId, quantity = 1 } = req.body;
     const filter = getCartFilter(req);
-
+    // console.log("Add to cart request:", {
+    //   productId,
+    //   quantity,
+    //   user: req.user,
+    //   sessionId: req.sessionId,
+    // });
     if (!filter) {
       return errorResponse(res, "Session ID required for guest cart", 400);
     }
-
+    // console.log("Adding to cart:", { productId, quantity, filter });
     const product = await Product.findOne({
       _id: productId,
       isPublished: true,

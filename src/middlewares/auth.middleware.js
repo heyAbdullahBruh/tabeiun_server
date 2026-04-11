@@ -83,26 +83,29 @@ export const optionalAuth = async (req, res, next) => {
     if (req.headers.authorization?.startsWith("Bearer")) {
       token = req.headers.authorization.split(" ")[1];
     }
-
     // If token exists and is valid, get user
     if (token) {
       try {
+        console.log("Optional auth - token found:", token);
         const decoded = verifyAccessToken(token);
+        console.log(decoded);
+
         const user = await User.findById(decoded.id);
+        console.log("Optional auth - user found:", user ? user._id : "none");
         if (user && !user.isBlocked) {
           req.user = user;
         }
       } catch (error) {
         // Token invalid - continue as guest
       }
+    } else {
+      // Always get sessionId from header (for guests)
+      const sessionId = req.headers["X-Session-Id"];
+      console.log("Optional auth - sessionId:", sessionId);
+      if (sessionId) {
+        req.sessionId = sessionId;
+      }
     }
-
-    // Always get sessionId from header (for guests)
-    const sessionId = req.headers["x-session-id"];
-    if (sessionId) {
-      req.sessionId = sessionId;
-    }
-
     next();
   } catch (error) {
     next();

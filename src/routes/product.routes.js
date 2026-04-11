@@ -36,12 +36,12 @@ const router = Router();
 
 // Public routes
 router.get("/", validate(getProductsValidator), getProducts);
-router.get("/:slugOrId", getProduct);
 router.get("/search", searchProducts);
 router.get("/featured", getFeaturedProducts);
 router.get("/top-selling", getTopSellingProducts);
 router.get("/category/:categorySlug", getProductsByCategorySlug);
 router.get("/recommended", authenticateUser, getRecommendedProducts);
+router.get("/:slugOrId", getProduct);
 
 // Protected routes (Admin/Moderator only)
 router.post(

@@ -200,6 +200,231 @@ class EmailService {
       console.error("Password reset confirmation email failed:", error);
     }
   }
+
+  async sendEmailVerificationCode(user, verificationCode) {
+    try {
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px; text-align: center; }
+          .code { font-size: 48px; font-weight: bold; letter-spacing: 10px; background: #fff; padding: 20px; border-radius: 10px; margin: 20px 0; font-family: monospace; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Email Verification</h1>
+            <h1>ইমেইল ভেরিফিকেশন</h1>
+          </div>
+          <div class="content">
+            <h2>Dear ${user.name},</h2>
+            <h2>প্রিয় ${user.name},</h2>
+            <p>Your email verification code is:</p>
+            <div class="code">${verificationCode}</div>
+            <p>This code will expire in <strong>10 minutes</strong>.</p>
+            <p>Thanks,<br>Tabeiun Medicine Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Tabeiun Medicine. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Verify Your Email - Tabeiun Medicine",
+        html,
+      });
+    } catch (error) {
+      console.error("Email verification code failed:", error);
+    }
+  }
+
+  async sendEmailVerificationSuccess(user) {
+    try {
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px; text-align: center; }
+          .checkmark { font-size: 60px; color: #2ecc71; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Email Verified Successfully!</h1>
+          </div>
+          <div class="content">
+            <div class="checkmark">✓</div>
+            <h2>Dear ${user.name},</h2>
+            <p>Your email has been successfully verified. You can now access all features.</p>
+            <p>Thanks,<br>Tabeiun Medicine Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Tabeiun Medicine. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Email Verified Successfully - Tabeiun Medicine",
+        html,
+      });
+    } catch (error) {
+      console.error("Email verification success email failed:", error);
+    }
+  }
+
+  async sendPasswordResetCodeEmail(user, resetCode) {
+    try {
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #f39c12, #e67e22); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px; text-align: center; }
+          .code { font-size: 48px; font-weight: bold; letter-spacing: 10px; background: #fff; padding: 20px; border-radius: 10px; margin: 20px 0; font-family: monospace; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Password Reset Code</h1>
+          </div>
+          <div class="content">
+            <h2>Dear ${user.name},</h2>
+            <p>Your password reset code is:</p>
+            <div class="code">${resetCode}</div>
+            <p>This code will expire in <strong>10 minutes</strong>.</p>
+            <p>Thanks,<br>Tabeiun Medicine Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Tabeiun Medicine. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Password Reset Code - Tabeiun Medicine",
+        html,
+      });
+    } catch (error) {
+      console.error("Password reset code email failed:", error);
+    }
+  }
+
+  async sendPasswordResetConfirmationEmail(user) {
+    try {
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px; text-align: center; }
+          .checkmark { font-size: 60px; color: #2ecc71; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Password Reset Successful</h1>
+          </div>
+          <div class="content">
+            <div class="checkmark">✓</div>
+            <h2>Dear ${user.name},</h2>
+            <p>Your password has been successfully reset. You can now login with your new password.</p>
+            <p>Thanks,<br>Tabeiun Medicine Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Tabeiun Medicine. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Password Reset Successful - Tabeiun Medicine",
+        html,
+      });
+    } catch (error) {
+      console.error("Password reset confirmation email failed:", error);
+    }
+  }
+
+  async sendPasswordChangeConfirmationEmail(user) {
+    try {
+      const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { padding: 30px; background: #f9f9f9; border-radius: 0 0 10px 10px; text-align: center; }
+          .checkmark { font-size: 60px; color: #2ecc71; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Password Changed Successfully</h1>
+          </div>
+          <div class="content">
+            <div class="checkmark">✓</div>
+            <h2>Dear ${user.name},</h2>
+            <p>Your password has been successfully changed. If you did not perform this action, please contact support immediately.</p>
+            <p>Thanks,<br>Tabeiun Medicine Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Tabeiun Medicine. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Password Changed - Tabeiun Medicine",
+        html,
+      });
+    } catch (error) {
+      console.error("Password change confirmation email failed:", error);
+    }
+  }
 }
 
 export default new EmailService();
