@@ -96,17 +96,16 @@ const userSchema = new mongoose.Schema(
 );
 
 // Hash password before saving (only for email provider or when password is set)
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password") || !this.password) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password") || !this.password) return;
 
   try {
     const salt = await bcrypt.genSalt(
       parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12,
     );
     this.password = await bcrypt.hash(this.password, salt);
-    next();
   } catch (error) {
-    next(error);
+    throw new Error("Error hashing password" || error.message);
   }
 });
 
