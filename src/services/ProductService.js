@@ -76,7 +76,11 @@ class ProductService extends BaseService {
     try {
       // Transform frontend filters to backend expected format
       const transformedQuery = this.transformFrontendFilters(queryString);
-
+      const prod = await Product.find().find({
+        isDeleted: false,
+        price: { $gte: 300, $lte: 400 },
+      });
+      // console.log("prod", prod);
       const queryBuilder = new QueryBuilder(Product.find(), transformedQuery)
         .filter()
         .search()
@@ -111,89 +115,6 @@ class ProductService extends BaseService {
       };
     } catch (error) {
       throw new Error(`Product filtering failed: ${error.message}`);
-    }
-  }
-
-  // Transform frontend filters to match QueryBuilder expectations
-  transformFrontendFilters(filters) {
-    const transformed = { ...filters };
-
-    // Map frontend parameter names to backend parameter names
-    if (filters.category) {
-      transformed.diseaseCategory = filters.category;
-      delete transformed.category;
-    }
-
-    // Handle stock status filter
-    if (filters.stockStatus) {
-      transformed.stockStatus = filters.stockStatus;
-      delete transformed.stockStatus;
-    }
-
-    // Handle publish status
-    if (filters.isPublished !== undefined && filters.isPublished !== "") {
-      transformed.isPublished = filters.isPublished === "true";
-    }
-
-    // Handle price range
-    if (filters.minPrice) {
-      transformed.minPrice = filters.minPrice;
-    }
-    if (filters.maxPrice) {
-      transformed.maxPrice = filters.maxPrice;
-    }
-
-    return transformed;
-  }
-
-  async updateProductRating(productId) {
-    try {
-      const reviews = await Review.find({
-        product: productId,
-        isApproved: true,
-      });
-
-      const ratingCount = reviews.length;
-      const ratingAverage =
-        ratingCount > 0
-          ? reviews.reduce((acc, rev) => acc + rev.rating, 0) / ratingCount
-          : 0;
-
-      await this.update(productId, {
-        ratingAverage: Math.round(ratingAverage * 10) / 10,
-        ratingCount,
-        totalReviews: ratingCount,
-      });
-
-      return { ratingAverage, ratingCount };
-    } catch (error) {
-      throw new Error(`Rating update failed: ${error.message}`);
-    }
-  }
-
-  async getRelatedProducts(productId, limit = 4) {
-    try {
-      const product = await this.findById(productId);
-      if (!product) {
-        throw new Error("Product not found");
-      }
-
-      const relatedProducts = await Product.find({
-        _id: { $ne: productId },
-        diseaseCategory: product.diseaseCategory,
-        isPublished: true,
-        isDeleted: false,
-      })
-        .limit(limit)
-        .populate("diseaseCategory", "name slug")
-        .select(
-          "name slug price discountPrice images shortDescription ratingAverage",
-        )
-        .lean();
-
-      return relatedProducts;
-    } catch (error) {
-      throw new Error(`Related products fetch failed: ${error.message}`);
     }
   }
 
@@ -261,6 +182,37 @@ class ProductService extends BaseService {
     } catch (error) {
       throw new Error(`Product search failed: ${error.message}`);
     }
+  }
+  // Transform frontend filters to match QueryBuilder expectations
+  transformFrontendFilters(filters) {
+    const transformed = { ...filters };
+    console.log("Original Filters:", filters);
+    // Map frontend parameter names to backend parameter names
+    if (filters.category) {
+      transformed.diseaseCategory = filters.category;
+      delete transformed.category;
+    }
+
+    // Handle stock status filter
+    if (filters.stockStatus) {
+      transformed.stockStatus = filters.stockStatus;
+      delete transformed.stockStatus;
+    }
+
+    // Handle publish status
+    if (filters.isPublished !== undefined && filters.isPublished !== "") {
+      transformed.isPublished = filters.isPublished === "true";
+    }
+
+    // Handle price range
+    if (filters.minPrice) {
+      transformed.minPrice = filters.minPrice;
+    }
+    if (filters.maxPrice) {
+      transformed.maxPrice = filters.maxPrice;
+    }
+
+    return transformed;
   }
 
   async getFeaturedProducts(limit = 10) {
@@ -361,18 +313,6 @@ class ProductService extends BaseService {
     }
   };
 
-  // Helper function
-  getPurchasedProductIds = async (userId) => {
-    const orders = await Order.find({ user: userId, status: "Delivered" });
-    const productIds = [];
-    orders.forEach((order) => {
-      order.products.forEach((item) => {
-        productIds.push(item.product);
-      });
-    });
-    return productIds;
-  };
-
   getProductsByCategorySlug = async (categorySlug, options = {}) => {
     try {
       const {
@@ -445,6 +385,68 @@ class ProductService extends BaseService {
     } catch (error) {
       throw new Error(`Failed to fetch products by category: ${error.message}`);
     }
+  };
+
+  async updateProductRating(productId) {
+    try {
+      const reviews = await Review.find({
+        product: productId,
+        isApproved: true,
+      });
+
+      const ratingCount = reviews.length;
+      const ratingAverage =
+        ratingCount > 0
+          ? reviews.reduce((acc, rev) => acc + rev.rating, 0) / ratingCount
+          : 0;
+
+      await this.update(productId, {
+        ratingAverage: Math.round(ratingAverage * 10) / 10,
+        ratingCount,
+        totalReviews: ratingCount,
+      });
+
+      return { ratingAverage, ratingCount };
+    } catch (error) {
+      throw new Error(`Rating update failed: ${error.message}`);
+    }
+  }
+
+  async getRelatedProducts(productId, limit = 4) {
+    try {
+      const product = await this.findById(productId);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      const relatedProducts = await Product.find({
+        _id: { $ne: productId },
+        diseaseCategory: product.diseaseCategory,
+        isPublished: true,
+        isDeleted: false,
+      })
+        .limit(limit)
+        .populate("diseaseCategory", "name slug")
+        .select(
+          "name slug price discountPrice images shortDescription ratingAverage",
+        )
+        .lean();
+
+      return relatedProducts;
+    } catch (error) {
+      throw new Error(`Related products fetch failed: ${error.message}`);
+    }
+  }
+  // Helper function
+  getPurchasedProductIds = async (userId) => {
+    const orders = await Order.find({ user: userId, status: "Delivered" });
+    const productIds = [];
+    orders.forEach((order) => {
+      order.products.forEach((item) => {
+        productIds.push(item.product);
+      });
+    });
+    return productIds;
   };
 }
 

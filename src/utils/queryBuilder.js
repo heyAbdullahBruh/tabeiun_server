@@ -18,6 +18,14 @@ export class QueryBuilder {
       "stockStatus",
       "isPublished",
       "diseaseCategory",
+      // Price filters - handled separately by filterByPrice()
+      "minPrice",
+      "maxPrice",
+      // Other filters handled separately
+      "age",
+      "gender",
+      "disease",
+      "minRating",
     ];
     excludedFields.forEach((el) => delete queryObj[el]);
 
@@ -25,12 +33,15 @@ export class QueryBuilder {
     let queryStr = JSON.stringify(queryObj);
     queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
 
-    // Add isDeleted filter for soft delete
-    if (!queryObj.includeDeleted) {
-      this.query = this.query.find({ isDeleted: false });
+    // Start with base filter (isDeleted: false)
+    this.query = this.query.find({ isDeleted: false });
+
+    // Apply additional filters if they exist
+    const parsedQuery = JSON.parse(queryStr);
+    if (Object.keys(parsedQuery).length > 0) {
+      this.query = this.query.find(parsedQuery);
     }
 
-    this.query = this.query.find(JSON.parse(queryStr));
     return this;
   }
 
@@ -82,36 +93,16 @@ export class QueryBuilder {
 
   filterByPrice() {
     if (this.queryString.minPrice || this.queryString.maxPrice) {
-      const priceFilter = {};
-      if (this.queryString.minPrice) {
-        priceFilter.$gte = parseFloat(this.queryString.minPrice);
-      }
-      if (this.queryString.maxPrice) {
-        priceFilter.$lte = parseFloat(this.queryString.maxPrice);
-      }
+      const minPrice = this.queryString.minPrice
+        ? parseFloat(this.queryString.minPrice)
+        : 0;
+      const maxPrice = this.queryString.maxPrice
+        ? parseFloat(this.queryString.maxPrice)
+        : 999999;
+
+      // Filter by regular price
       this.query = this.query.find({
-        $expr: {
-          $cond: {
-            if: {
-              $and: [
-                { $ne: ["$discountPrice", null] },
-                { $lt: ["$discountPrice", "$price"] },
-              ],
-            },
-            then: {
-              $and: [
-                { $gte: ["$discountPrice", priceFilter.$gte || 0] },
-                { $lte: ["$discountPrice", priceFilter.$lte || Infinity] },
-              ],
-            },
-            else: {
-              $and: [
-                { $gte: ["$price", priceFilter.$gte || 0] },
-                { $lte: ["$price", priceFilter.$lte || Infinity] },
-              ],
-            },
-          },
-        },
+        price: { $gte: minPrice, $lte: maxPrice },
       });
     }
     return this;
@@ -126,18 +117,15 @@ export class QueryBuilder {
     return this;
   }
 
-  // NEW METHOD: Filter by stock status
   filterByStockStatus() {
     if (this.queryString.stockStatus) {
       const status = this.queryString.stockStatus;
 
       if (status === "in") {
-        // In Stock: stock > lowStockAlert or stock > 10
         this.query = this.query.find({
           $expr: { $gt: ["$stock", { $ifNull: ["$lowStockAlert", 10] }] },
         });
       } else if (status === "low") {
-        // Low Stock: stock <= lowStockAlert AND stock > 0
         this.query = this.query.find({
           $and: [
             {
@@ -147,24 +135,21 @@ export class QueryBuilder {
           ],
         });
       } else if (status === "out") {
-        // Out of Stock: stock === 0
         this.query = this.query.find({ stock: 0 });
       }
     }
     return this;
   }
 
-  // NEW METHOD: Filter by publish status
   filterByPublishStatus() {
     if (this.queryString.isPublished !== undefined) {
       this.query = this.query.find({
-        isPublished: this.queryString.isPublished,
+        isPublished: this.queryString.isPublished === "true",
       });
     }
     return this;
   }
 
-  // NEW METHOD: Filter by category
   filterByCategory() {
     if (this.queryString.diseaseCategory) {
       this.query = this.query.find({
@@ -204,7 +189,8 @@ export class QueryBuilder {
   }
 
   async getTotalCount() {
-    const countQuery = { ...this.query._conditions };
-    return await this.query.model.countDocuments(countQuery);
+    // Clone the query to get count without pagination
+    const countQuery = this.query.model.find(this.query._conditions);
+    return await countQuery.countDocuments();
   }
 }
