@@ -43,12 +43,19 @@ export const addToFavourites = async (req, res) => {
 
     const existing = await Favourite.findOne({ ...filter, product: productId });
     if (existing) {
+      console.log("Already in favourites:", existing);
       return errorResponse(res, "Product already in favourites", 400);
     }
 
     await Favourite.create({ ...filter, product: productId });
+    const favourites = await Favourite.find(filter).populate({
+      path: "product",
+      match: { isPublished: true, isDeleted: false },
+      select:
+        "_id name slug price discountPrice images shortDescription ratingAverage",
+    });
 
-    return successResponse(res, null, "Added to favourites successfully");
+    return successResponse(res, favourites, "Added to favourites successfully");
   } catch (error) {
     return errorResponse(res, error.message);
   }
@@ -72,8 +79,17 @@ export const removeFromFavourites = async (req, res) => {
     if (!result) {
       return errorResponse(res, "Product not found in favourites", 404);
     }
-
-    return successResponse(res, null, "Removed from favourites successfully");
+    const favourites = await Favourite.find(filter).populate({
+      path: "product",
+      match: { isPublished: true, isDeleted: false },
+      select:
+        "_id name slug price discountPrice images shortDescription ratingAverage",
+    });
+    return successResponse(
+      res,
+      favourites,
+      "Removed from favourites successfully",
+    );
   } catch (error) {
     return errorResponse(res, error.message);
   }
@@ -94,7 +110,7 @@ export const getFavourites = async (req, res) => {
         path: "product",
         match: { isPublished: true, isDeleted: false },
         select:
-          "name slug price discountPrice images shortDescription ratingAverage",
+          "_id name slug price discountPrice images shortDescription ratingAverage",
       })
       .sort("-createdAt")
       .limit(parseInt(limit))
