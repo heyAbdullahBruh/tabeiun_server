@@ -259,6 +259,7 @@ export const getRecommendedProducts = async (req, res) => {
       "Recommended products fetched successfully",
     );
   } catch (error) {
+    console.log(error);
     return errorResponse(res, error.message);
   }
 };

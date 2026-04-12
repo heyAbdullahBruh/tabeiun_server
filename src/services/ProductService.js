@@ -5,6 +5,7 @@ import { generateUniqueSlug } from "../utils/slugGenerator.js";
 import { deleteFromImageKit } from "../config/imagekit.js";
 import Review from "../models/Review.model.js";
 import Category from "../models/Category.model.js";
+import Order from "../models/Order.model.js";
 
 class ProductService extends BaseService {
   constructor() {
@@ -76,10 +77,7 @@ class ProductService extends BaseService {
     try {
       // Transform frontend filters to backend expected format
       const transformedQuery = this.transformFrontendFilters(queryString);
-      const prod = await Product.find().find({
-        isDeleted: false,
-        price: { $gte: 300, $lte: 400 },
-      });
+
       // console.log("prod", prod);
       const queryBuilder = new QueryBuilder(Product.find(), transformedQuery)
         .filter()
@@ -250,14 +248,40 @@ class ProductService extends BaseService {
     }
   };
 
-  getRecommendedProducts = async (userId, limit = 10) => {
+  async getPurchasedProductIds(userId) {
+    const orders = await Order.find({ user: userId, status: "Delivered" });
+    const productIds = [];
+    orders.forEach((order) => {
+      order.products.forEach((item) => {
+        productIds.push(item.product);
+      });
+    });
+    return productIds;
+  }
+
+  async getTopRatedProducts(limit = 10) {
     try {
-      // Get user's order history
+      const products = await Product.find({
+        isPublished: true,
+        isDeleted: false,
+      })
+        .populate("diseaseCategory", "name slug")
+        .sort({ ratingAverage: -1, totalSold: -1 })
+        .limit(parseInt(limit))
+        .lean();
+
+      return products;
+    } catch (error) {
+      throw new Error(`Failed to fetch top rated products: ${error.message}`);
+    }
+  }
+
+  async getRecommendedProducts(userId, limit = 10) {
+    try {
       const userOrders = await Order.find({ user: userId, status: "Delivered" })
         .populate("products.product")
         .limit(5);
 
-      // Extract categories and tags from user's purchase history
       const purchasedCategories = new Set();
       const purchasedTags = new Set();
 
@@ -272,11 +296,12 @@ class ProductService extends BaseService {
         });
       });
 
-      // Build recommendation query
+      const purchasedProductIds = await this.getPurchasedProductIds(userId);
+
       const filter = {
         isPublished: true,
         isDeleted: false,
-        _id: { $nin: await getPurchasedProductIds(userId) }, // Exclude purchased products
+        _id: { $nin: purchasedProductIds },
       };
 
       if (purchasedCategories.size > 0) {
@@ -287,31 +312,17 @@ class ProductService extends BaseService {
         filter.diseaseTags = { $in: Array.from(purchasedTags) };
       }
 
-      const products = await Product.find(filter)
+      let products = await Product.find(filter)
         .populate("diseaseCategory", "name slug")
-        .sort("-ratingAverage", "-totalSold")
+        .sort({ ratingAverage: -1, totalSold: -1 })
         .limit(parseInt(limit))
         .lean();
-
-      // If not enough recommendations, get top rated products
-      if (products.length < parseInt(limit)) {
-        const fallbackProducts = await Product.find({
-          isPublished: true,
-          isDeleted: false,
-          _id: { $nin: await getPurchasedProductIds(userId) },
-        })
-          .sort("-ratingAverage", "-totalSold")
-          .limit(parseInt(limit) - products.length)
-          .lean();
-
-        products.push(...fallbackProducts);
-      }
 
       return products;
     } catch (error) {
       throw new Error(`Failed to fetch recommended products: ${error.message}`);
     }
-  };
+  }
 
   getProductsByCategorySlug = async (categorySlug, options = {}) => {
     try {
@@ -437,17 +448,6 @@ class ProductService extends BaseService {
       throw new Error(`Related products fetch failed: ${error.message}`);
     }
   }
-  // Helper function
-  getPurchasedProductIds = async (userId) => {
-    const orders = await Order.find({ user: userId, status: "Delivered" });
-    const productIds = [];
-    orders.forEach((order) => {
-      order.products.forEach((item) => {
-        productIds.push(item.product);
-      });
-    });
-    return productIds;
-  };
 }
 
 export default new ProductService();
