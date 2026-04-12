@@ -2,6 +2,29 @@ import Review from "../models/Review.model.js";
 import * as reviewService from "../services/reviewService.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 
+// Check if user can review a product
+export const canReviewProduct = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { productId } = req.params;
+
+    const canReview = await reviewService.isThisProductReadyForReviewByUser(
+      userId,
+      productId,
+    );
+
+    return successResponse(
+      res,
+      { canReview },
+      canReview
+        ? "You can review this product"
+        : "You cannot review this product. You must purchase and receive it first, and you cannot review it more than once per order.",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Create review
 export const createReview = async (req, res) => {
   try {
