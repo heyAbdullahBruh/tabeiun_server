@@ -49,6 +49,20 @@ export const createReview = async (req, res) => {
   }
 };
 
+// vote for helpful review
+export const voteHelpfulReview = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { reviewId } = req.params;
+
+    const review = await reviewService.voteHelpfulReview(reviewId, userId);
+
+    return successResponse(res, { review }, "Your vote has been recorded");
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Get product reviews
 export const getProductReviews = async (req, res) => {
   try {
