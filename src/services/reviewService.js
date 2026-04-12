@@ -3,6 +3,28 @@ import Order from "../models/Order.model.js";
 import Product from "../models/Product.model.js";
 import { uploadToImageKit, deleteFromImageKit } from "../config/imagekit.js";
 
+// Has already reviewed by this user
+export const hasAlreadyReviewed = async (userId, productId) => {
+  const order = await Order.findOne({
+    user: userId,
+    status: "Delivered",
+    "products.product": productId,
+  });
+
+  if (!order) {
+    return false;
+  }
+
+  const review = await Review.findOne({
+    user: userId,
+    product: productId,
+    orderId: order._id,
+  });
+
+  return !!review;
+};
+
+// Check if user can review a product
 export const isThisProductReadyForReviewByUser = async (userId, productId) => {
   const order = await Order.findOne({
     user: userId,
@@ -22,6 +44,7 @@ export const isThisProductReadyForReviewByUser = async (userId, productId) => {
 
   return !review;
 };
+
 // Create review
 export const createReview = async (userId, reviewData, imageFile = null) => {
   try {
