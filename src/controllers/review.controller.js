@@ -2,6 +2,29 @@ import Review from "../models/Review.model.js";
 import * as reviewService from "../services/reviewService.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 
+// has already reviewed by this user
+export const hasAlreadyReviewed = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { productId } = req.params;
+
+    const alreadyReviewed = await reviewService.hasAlreadyReviewed(
+      userId,
+      productId,
+    );
+
+    return successResponse(
+      res,
+      { alreadyReviewed },
+      alreadyReviewed
+        ? "You have already reviewed this product for your order."
+        : "You have not reviewed this product for your order.",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Check if user can review a product
 export const canReviewProduct = async (req, res) => {
   try {
