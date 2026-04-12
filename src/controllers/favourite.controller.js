@@ -16,7 +16,42 @@ const getFavouriteFilter = (req) => {
   }
   return null;
 };
+// Get User's Favourites - UPDATED
+export const getFavourites = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const filter = getFavouriteFilter(req);
 
+    if (!filter) {
+      return successResponse(res, { favourites: [], total: 0, pagination: {} });
+    }
+
+    const favourites = await Favourite.find(filter)
+      .populate({
+        path: "product",
+        match: { isPublished: true, isDeleted: false },
+        select:
+          "_id name slug price discountPrice images shortDescription ratingAverage",
+      })
+      .sort("-createdAt")
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const validFavourites = favourites.filter((f) => f.product !== null);
+    const total = await Favourite.countDocuments(filter);
+
+    return paginationResponse(
+      res,
+      validFavourites.map((f) => f.product),
+      total,
+      page,
+      limit,
+      "Favourites fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
 // Add to Favourites - UPDATED
 export const addToFavourites = async (req, res) => {
   try {
@@ -89,43 +124,6 @@ export const removeFromFavourites = async (req, res) => {
       res,
       favourites,
       "Removed from favourites successfully",
-    );
-  } catch (error) {
-    return errorResponse(res, error.message);
-  }
-};
-
-// Get User's Favourites - UPDATED
-export const getFavourites = async (req, res) => {
-  try {
-    const { page = 1, limit = 20 } = req.query;
-    const filter = getFavouriteFilter(req);
-
-    if (!filter) {
-      return successResponse(res, { favourites: [], total: 0, pagination: {} });
-    }
-
-    const favourites = await Favourite.find(filter)
-      .populate({
-        path: "product",
-        match: { isPublished: true, isDeleted: false },
-        select:
-          "_id name slug price discountPrice images shortDescription ratingAverage",
-      })
-      .sort("-createdAt")
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-
-    const validFavourites = favourites.filter((f) => f.product !== null);
-    const total = await Favourite.countDocuments(filter);
-
-    return paginationResponse(
-      res,
-      validFavourites.map((f) => f.product),
-      total,
-      page,
-      limit,
-      "Favourites fetched successfully",
     );
   } catch (error) {
     return errorResponse(res, error.message);
