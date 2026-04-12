@@ -81,6 +81,33 @@ export const createReview = async (userId, reviewData, imageFile = null) => {
   }
 };
 
+// vote for helpful review
+export const voteHelpfulToggle = async (reviewId, userId) => {
+  try {
+    const review = await Review.findById(reviewId);
+
+    if (!review) {
+      throw new Error("Review not found");
+    }
+
+    const hasVoted = review.helpedBy.includes(userId);
+
+    if (hasVoted) {
+      review.helpfulCount -= 1;
+      review.helpedBy.pull(userId);
+    } else {
+      review.helpfulCount += 1;
+      review.helpedBy.push(userId);
+    }
+
+    await review.save();
+
+    return { helpfulCount: review.helpfulCount, hasVoted: !hasVoted };
+  } catch (error) {
+    throw new Error(`Failed to toggle helpful vote: ${error.message}`);
+  }
+};
+
 // Get product reviews (public)
 export const getProductReviews = async (productId, options = {}) => {
   try {
