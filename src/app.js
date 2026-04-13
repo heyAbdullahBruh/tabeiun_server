@@ -30,6 +30,8 @@ import activityLogRoutes from "./routes/activityLog.routes.js";
 import settingsRoutes from "./routes/settings.routes.js";
 import notficationRoutes from "./routes/notification.routes.js";
 import testimonialRoutes from "./routes/testimonial.routes.js";
+import reviewRoutes from "./routes/review.routes.js";
+
 dotenv.config();
 
 const app = express();
@@ -132,6 +134,9 @@ app.use(`${API_PREFIX}/notifications`, notficationRoutes);
 
 // Testimonial Routes
 app.use(`${API_PREFIX}/testimonials`, testimonialRoutes);
+
+// Review Routes
+app.use(`${API_PREFIX}/reviews`, reviewRoutes);
 
 // 404 handler
 app.use(notFound);

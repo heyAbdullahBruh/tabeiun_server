@@ -1,5 +1,5 @@
 import Review from "../models/Review.model.js";
-import * as reviewService from "../services/reviewService.js";
+import reviewService from "../services/reviewService.js";
 import { successResponse, errorResponse } from "../utils/responseFormatter.js";
 
 // has already reviewed by this user
@@ -99,6 +99,7 @@ export const getProductReviews = async (req, res) => {
 
     return successResponse(res, result, "Reviews fetched successfully");
   } catch (error) {
+    console.error("Error fetching product reviews:", error);
     return errorResponse(res, error.message);
   }
 };
