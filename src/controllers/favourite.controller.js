@@ -181,6 +181,24 @@ export const clearFavourites = async (req, res) => {
   }
 };
 
+// Clear Listed favourites - UPDATED
+export const clearListedFavourites = async (req, res) => {
+  try {
+    const { productIds } = req.body;
+    const filter = getFavouriteFilter(req);
+
+    if (!filter) {
+      return errorResponse(res, "Favourites not found", 404);
+    }
+
+    await Favourite.deleteMany({ ...filter, product: { $in: productIds } });
+
+    return successResponse(res, null, "Selected favourites cleared");
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Merge guest favourites with user - ADD THIS
 export const mergeFavourites = async (req, res) => {
   try {

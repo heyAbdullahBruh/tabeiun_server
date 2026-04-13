@@ -7,6 +7,7 @@ import {
   getFavouriteCount,
   clearFavourites,
   mergeFavourites,
+  clearListedFavourites,
 } from "../controllers/favourite.controller.js";
 import {
   authenticateUser,
@@ -38,6 +39,7 @@ router.get(
   checkFavourite,
 );
 router.delete("/clear/all", optionalAuth, clearFavourites);
+router.delete("/clear/listed", optionalAuth, clearListedFavourites);
 
 // Public route
 router.get(
