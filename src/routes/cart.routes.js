@@ -7,6 +7,7 @@ import {
   clearCart,
   mergeCart,
   validateCartForCheckout,
+  removeSelectedFromCart,
 } from "../controllers/cart.controller.js";
 import {
   authenticateUser,
@@ -30,6 +31,7 @@ router.put(
   updateCartItem,
 );
 router.delete("/items/:itemId", optionalAuth, removeFromCart);
+router.delete("/remove-selected", optionalAuth, removeSelectedFromCart);
 router.delete("/clear", optionalAuth, clearCart);
 
 // Authenticated only routes

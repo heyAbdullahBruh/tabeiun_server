@@ -250,6 +250,47 @@ export const removeFromCart = async (req, res) => {
   }
 };
 
+// remove Selected Items from cart - UPDATED
+export const removeSelectedFromCart = async (req, res) => {
+  try {
+    const { itemIds } = req.body; // Expecting an array of item IDs to remove
+    const filter = getCartFilter(req);
+
+    if (!filter) {
+      return errorResponse(res, "Cart not found", 404);
+    }
+
+    const cart = await Cart.findOne(filter);
+    if (!cart) {
+      return errorResponse(res, "Cart not found", 404);
+    }
+
+    cart.items = cart.items.filter(
+      (item) => !itemIds.includes(item._id.toString()),
+    );
+    await cart.save();
+
+    const updatedCart = await Cart.findById(cart._id).populate({
+      path: "items.product",
+      select: "name slug price discountPrice images stock",
+    });
+
+    const summary = calculateCartSummary(updatedCart.items);
+
+    return successResponse(
+      res,
+      {
+        items: updatedCart.items,
+        summary,
+        isGuest: !req.user,
+      },
+      "Selected items removed from cart",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
+
 // Clear cart - UPDATED
 export const clearCart = async (req, res) => {
   try {
