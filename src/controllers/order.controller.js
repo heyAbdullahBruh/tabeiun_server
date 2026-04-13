@@ -1,4 +1,4 @@
-import Order, { OrderStatus } from "../models/Order.model.js";
+import Order from "../models/Order.model.js";
 import orderService from "../services/OrderService.js";
 import emailService from "../services/EmailService.js";
 import {
@@ -7,6 +7,7 @@ import {
   paginationResponse,
 } from "../utils/responseFormatter.js";
 import { logAdminActivity } from "../services/ActivityLogService.js";
+import User from "../models/User.model.js";
 
 // Create Order (User)
 export const createOrder = async (req, res) => {

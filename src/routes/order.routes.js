@@ -32,7 +32,7 @@ const router = Router();
 // USER ROUTES
 // ==========================================
 router.post(
-  "/",
+  "/create",
   authenticateUser,
   orderRateLimiter,
   validate(createOrderValidator),
