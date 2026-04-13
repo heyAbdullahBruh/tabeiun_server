@@ -31,7 +31,7 @@ export const getFavourites = async (req, res) => {
         path: "product",
         match: { isPublished: true, isDeleted: false },
         select:
-          "_id name slug price discountPrice images shortDescription ratingAverage",
+          "_id name slug price discountPrice images shortDescription ratingAverage stock",
       })
       .sort("-createdAt")
       .limit(parseInt(limit))
@@ -87,7 +87,7 @@ export const addToFavourites = async (req, res) => {
       path: "product",
       match: { isPublished: true, isDeleted: false },
       select:
-        "_id name slug price discountPrice images shortDescription ratingAverage",
+        "_id name slug price discountPrice images shortDescription ratingAverage stock",
     });
 
     return successResponse(res, favourites, "Added to favourites successfully");
@@ -118,7 +118,7 @@ export const removeFromFavourites = async (req, res) => {
       path: "product",
       match: { isPublished: true, isDeleted: false },
       select:
-        "_id name slug price discountPrice images shortDescription ratingAverage",
+        "_id name slug price discountPrice images shortDescription ratingAverage stock",
     });
     return successResponse(
       res,
