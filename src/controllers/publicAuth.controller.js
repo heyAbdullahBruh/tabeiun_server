@@ -394,6 +394,7 @@ export const sendVerificationCode = async (req, res) => {
   }
 };
 
+// Note: The verifyEmail function is used for both initial verification and resending code, so it checks both req.user and email in the body to find the user. This allows it to work seamlessly in both scenarios.
 export const verifyEmail = async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -470,6 +471,9 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
+//=========================================
+// RESEND VERIFICATION CODE
+//=========================================
 export const resendVerificationCode = async (req, res) => {
   try {
     const { email } = req.body;
@@ -670,7 +674,12 @@ export const changePassword = async (req, res) => {
     const userId = req.user._id;
 
     const user = await User.findById(userId).select("+password");
-
+    console.log("User found for password change:", {
+      user,
+      userId,
+      currentPassword,
+      newPassword,
+    });
     if (!user) {
       return errorResponse(res, "User not found", 404);
     }
@@ -685,8 +694,9 @@ export const changePassword = async (req, res) => {
       }
 
       const isPasswordValid = await user.comparePassword(currentPassword);
+      console.log("Current password valid:", isPasswordValid);
       if (!isPasswordValid) {
-        return errorResponse(res, "Current password is incorrect", 401);
+        return errorResponse(res, "Current password is incorrect", 300);
       }
 
       if (currentPassword === newPassword) {

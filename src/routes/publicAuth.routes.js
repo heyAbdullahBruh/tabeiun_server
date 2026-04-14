@@ -108,12 +108,12 @@ router.post(
   resetPasswordWithCode,
 );
 router.post(
-  "/change-password",
+  "/user-change-password",
   authenticateUser,
   validate(changePasswordValidator),
   changePassword,
 );
-router.get("/password-status", authenticateUser, checkPasswordStatus);
+router.get("/user-password-status", authenticateUser, checkPasswordStatus);
 
 // ==========================================
 // TOKEN & SESSION
