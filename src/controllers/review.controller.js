@@ -88,6 +88,7 @@ export const createReview = async (req, res) => {
       201,
     );
   } catch (error) {
+    console.error("Error creating review:", error);
     return errorResponse(res, error.message);
   }
 };

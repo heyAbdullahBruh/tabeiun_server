@@ -122,9 +122,22 @@ class ReviewService {
     try {
       const { productId, orderId, rating, comment } = reviewData;
 
+      // Check if user purchased But order Id Doesn't provide.
+      let o_id = orderId;
+      if (!o_id) {
+        const order = await this.Order.findOne({
+          user: userId,
+          status: "Delivered",
+          "products.product": productId,
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+        o_id = order?._id || null;
+      }
+
       // Check if user purchased this product
       const order = await this.Order.findOne({
-        _id: orderId,
+        _id: o_id,
         user: userId,
         status: "Delivered",
         "products.product": productId,
@@ -140,7 +153,7 @@ class ReviewService {
       const existingReview = await this.Review.findOne({
         user: userId,
         product: productId,
-        orderId: orderId,
+        orderId: o_id,
       });
 
       if (existingReview) {
@@ -165,7 +178,7 @@ class ReviewService {
       const review = await this.Review.create({
         user: userId,
         product: productId,
-        orderId: orderId,
+        orderId: o_id,
         rating,
         comment,
         image,
