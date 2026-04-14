@@ -559,17 +559,44 @@ export const getOrderStats = async (req, res) => {
   }
 };
 
+// src/controllers/order.controller.js - FIXED VERSION
+
+// Helper function for grouping by different time periods
+const getGroupByFormat = (groupBy) => {
+  switch (groupBy) {
+    case "day":
+      return {
+        year: { $year: "$createdAt" },
+        month: { $month: "$createdAt" },
+        day: { $dayOfMonth: "$createdAt" },
+      };
+    case "week":
+      return {
+        year: { $year: "$createdAt" },
+        week: { $week: "$createdAt" },
+      };
+    case "month":
+      return {
+        year: { $year: "$createdAt" },
+        month: { $month: "$createdAt" },
+      };
+    case "year":
+      return {
+        year: { $year: "$createdAt" },
+      };
+    default:
+      return {
+        year: { $year: "$createdAt" },
+        month: { $month: "$createdAt" },
+        day: { $dayOfMonth: "$createdAt" },
+      };
+  }
+};
+
 // Get Order Analytics with Advanced Filters
 export const getOrderAnalytics = async (req, res) => {
   try {
-    const {
-      startDate,
-      endDate,
-      groupBy = "day", // day, week, month, year
-      status,
-      category,
-      productId,
-    } = req.query;
+    const { startDate, endDate, groupBy = "day", status } = req.query;
 
     // Build match stage
     const matchStage = {};
@@ -584,7 +611,7 @@ export const getOrderAnalytics = async (req, res) => {
       matchStage.status = status;
     }
 
-    // Get analytics data
+    // Get analytics data - FIXED: No nested $facet
     const analytics = await Order.aggregate([
       { $match: matchStage },
       {
@@ -637,41 +664,12 @@ export const getOrderAnalytics = async (req, res) => {
             { $sort: { "_id.dayOfWeek": 1 } },
           ],
 
-          // Customer acquisition metrics
-          customerMetrics: [
-            {
-              $group: {
-                _id: "$user",
-                totalSpent: { $sum: "$finalAmount" },
-                orderCount: { $sum: 1 },
-                firstOrder: { $min: "$createdAt" },
-                lastOrder: { $max: "$createdAt" },
-              },
-            },
-            {
-              $facet: {
-                newCustomers: [
-                  { $match: { orderCount: 1 } },
-                  { $count: "count" },
-                ],
-                returningCustomers: [
-                  { $match: { orderCount: { $gt: 1 } } },
-                  { $count: "count" },
-                ],
-                totalCustomers: [{ $count: "count" }],
-              },
-            },
-          ],
-
           // Average order value trend
           aovTrend: [
             {
               $group: {
                 _id: getGroupByFormat(groupBy),
                 aov: { $avg: "$finalAmount" },
-                median: {
-                  $median: { input: "$finalAmount", method: "approximate" },
-                },
               },
             },
             { $sort: { _id: 1 } },
@@ -680,46 +678,50 @@ export const getOrderAnalytics = async (req, res) => {
       },
     ]);
 
-    return successResponse(
-      res,
-      analytics[0],
-      "Order analytics fetched successfully",
-    );
+    // Get customer metrics separately (FIXED: Removed from $facet)
+    const customerMetrics = await Order.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: "$user",
+          totalSpent: { $sum: "$finalAmount" },
+          orderCount: { $sum: 1 },
+          firstOrder: { $min: "$createdAt" },
+          lastOrder: { $max: "$createdAt" },
+        },
+      },
+      {
+        $facet: {
+          newCustomers: [{ $match: { orderCount: 1 } }, { $count: "count" }],
+          returningCustomers: [
+            { $match: { orderCount: { $gt: 1 } } },
+            { $count: "count" },
+          ],
+          totalCustomers: [{ $count: "count" }],
+          customerLifetimeValue: [
+            {
+              $group: {
+                _id: null,
+                averageLTV: { $avg: "$totalSpent" },
+                maxLTV: { $max: "$totalSpent" },
+                minLTV: { $min: "$totalSpent" },
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    // Combine results
+    const result = {
+      ...analytics[0],
+      customerMetrics: customerMetrics[0],
+    };
+
+    return successResponse(res, result, "Order analytics fetched successfully");
   } catch (error) {
     console.error("Order analytics error:", error);
     return errorResponse(res, error.message);
-  }
-};
-
-// Helper function for grouping by different time periods
-const getGroupByFormat = (groupBy) => {
-  switch (groupBy) {
-    case "day":
-      return {
-        year: { $year: "$createdAt" },
-        month: { $month: "$createdAt" },
-        day: { $dayOfMonth: "$createdAt" },
-      };
-    case "week":
-      return {
-        year: { $year: "$createdAt" },
-        week: { $week: "$createdAt" },
-      };
-    case "month":
-      return {
-        year: { $year: "$createdAt" },
-        month: { $month: "$createdAt" },
-      };
-    case "year":
-      return {
-        year: { $year: "$createdAt" },
-      };
-    default:
-      return {
-        year: { $year: "$createdAt" },
-        month: { $month: "$createdAt" },
-        day: { $dayOfMonth: "$createdAt" },
-      };
   }
 };
 
