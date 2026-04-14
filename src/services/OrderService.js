@@ -34,6 +34,7 @@ class OrderService extends BaseService {
         const price = product.discountPrice || product.price;
         totalAmount += price * item.quantity;
 
+        // FIXED: Removed 'name' field (not in schema)
         orderProducts.push({
           product: product._id,
           quantity: item.quantity,
@@ -42,7 +43,7 @@ class OrderService extends BaseService {
       }
 
       // Create order
-      const order = await Order.create(
+      const [order] = await Order.create(
         [
           {
             orderId: generateOrderId(),
@@ -63,7 +64,12 @@ class OrderService extends BaseService {
       // Commit transaction
       await session.commitTransaction();
 
-      return order[0];
+      // FIXED: Populate after commit (or within transaction before commit)
+      const populatedOrder = await Order.findById(order._id)
+        .populate("products.product", "name slug images price")
+        .lean();
+
+      return populatedOrder;
     } catch (error) {
       await session.abortTransaction();
       throw new Error(`Order creation failed: ${error.message}`);

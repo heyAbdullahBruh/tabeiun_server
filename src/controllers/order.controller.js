@@ -16,7 +16,6 @@ export const createOrder = async (req, res) => {
     const orderData = req.body;
 
     const order = await orderService.createOrder(userId, orderData);
-
     // Send emails
     await emailService.sendOrderConfirmationToCustomer(order, req.user);
     await emailService.sendOrderConfirmationToAdmin(order, req.user);

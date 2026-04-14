@@ -64,7 +64,7 @@ export const emailTemplates = {
               <tr>
                 <th>প্রোডাক্ট</th>
                 <th>পরিমাণ</th>
-                <th>মূল্য</th>
+                <th>মূল্য(অর্ডারের সময়সময়)</th>
               </tr>
             </thead>
             <tbody>
