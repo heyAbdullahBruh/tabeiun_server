@@ -48,6 +48,26 @@ export const canReviewProduct = async (req, res) => {
   }
 };
 
+// Get products that user can review (delivered & not reviewed)
+export const getReviewableProducts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const products =
+      await reviewService.userDeliveredProductsNotReviewed(userId);
+
+    return successResponse(
+      res,
+      {
+        products,
+        totalCount: products.length,
+      },
+      "Reviewable products fetched successfully",
+    );
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};
 // Create review
 export const createReview = async (req, res) => {
   try {

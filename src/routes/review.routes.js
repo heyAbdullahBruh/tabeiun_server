@@ -12,6 +12,7 @@ import {
   canReviewProduct,
   voteHelpfulReview,
   hasAlreadyReviewed,
+  getReviewableProducts,
 } from "../controllers/review.controller.js";
 import {
   authenticateUser,
@@ -30,6 +31,7 @@ const router = Router();
 router.get("/product/:productId", getProductReviews);
 
 // User authenticated routes
+router.get("/reviewable-products", authenticateUser, getReviewableProducts);
 router.get("/can-review/:productId", authenticateUser, canReviewProduct);
 router.get("/has-reviewed/:productId", authenticateUser, hasAlreadyReviewed);
 router.post("/create", authenticateUser, upload.single("image"), createReview);
