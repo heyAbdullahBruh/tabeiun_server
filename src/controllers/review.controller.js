@@ -98,7 +98,7 @@ export const voteHelpfulReview = async (req, res) => {
     const userId = req.user._id;
     const { reviewId } = req.params;
 
-    const review = await reviewService.voteHelpfulReview(reviewId, userId);
+    const review = await reviewService.voteHelpfulToggle(reviewId, userId);
 
     return successResponse(res, { review }, "Your vote has been recorded");
   } catch (error) {
