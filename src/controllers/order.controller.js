@@ -104,28 +104,124 @@ export const trackOrder = async (req, res) => {
   }
 };
 
+// Helper function to get date range based on period
+const getDateRangeFromPeriod = (period) => {
+  const start = new Date();
+  const end = new Date();
+
+  switch (period) {
+    case "today":
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "yesterday":
+      start.setDate(start.getDate() - 1);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "week":
+      start.setDate(start.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case "month":
+      start.setMonth(start.getMonth() - 1);
+      start.setHours(0, 0, 0, 0);
+      break;
+    case "year":
+      start.setFullYear(start.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
+      break;
+    default:
+      return null;
+  }
+  return { start, end };
+};
+
 // Get All Orders (Admin/Moderator)
 export const getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, startDate, endDate } = req.query;
+    let {
+      page = 1,
+      limit = 10,
+      status,
+      startDate,
+      endDate,
+      period,
+      search,
+      minAmount,
+      maxAmount,
+    } = req.query;
+
+    // Convert empty strings to undefined
+    if (startDate === "") startDate = undefined;
+    if (endDate === "") endDate = undefined;
+    if (period === "") period = undefined;
+    if (search === "") search = undefined;
+    if (status === "") status = undefined;
+    if (minAmount === "") minAmount = undefined;
+    if (maxAmount === "") maxAmount = undefined;
 
     const filter = {};
-    if (status) filter.status = status;
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+
+    // Status filter
+    if (status && status !== "all") {
+      filter.status = status;
     }
 
-    const orders = await Order.find(filter)
-      .populate("user", "name email phone")
-      .populate("products.product", "name slug")
-      .populate("isConfirmedBy", "name email")
-      .sort("-createdAt")
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
+    // Date filtering - Priority: period > startDate/endDate
+    if (period && period !== "custom" && period !== "all") {
+      const dateRange = getDateRangeFromPeriod(period);
+      if (dateRange) {
+        filter.createdAt = {
+          $gte: dateRange.start,
+          $lte: dateRange.end,
+        };
+        console.log(`Date filter from period ${period}:`, filter.createdAt);
+      }
+    } else if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+      console.log("Date filter from custom range:", filter.createdAt);
+    }
 
-    const total = await Order.countDocuments(filter);
+    // Amount filter
+    if (minAmount || maxAmount) {
+      filter.finalAmount = {};
+      if (minAmount) filter.finalAmount.$gte = parseFloat(minAmount);
+      if (maxAmount) filter.finalAmount.$lte = parseFloat(maxAmount);
+    }
+
+    // Search filter (by orderId)
+    if (search) {
+      filter.orderId = { $regex: search, $options: "i" };
+    }
+
+    console.log("Final filter:", JSON.stringify(filter, null, 2));
+
+    // Execute queries
+    const [orders, total] = await Promise.all([
+      Order.find(filter)
+        .populate("user", "name email phone")
+        .populate("products.product", "name slug")
+        .populate("isConfirmedBy", "name email")
+        .sort("-createdAt")
+        .limit(parseInt(limit))
+        .skip((parseInt(page) - 1) * parseInt(limit))
+        .lean(),
+      Order.countDocuments(filter),
+    ]);
+
+    console.log(`Found ${total} orders matching criteria`);
 
     return paginationResponse(
       res,
@@ -136,10 +232,10 @@ export const getAllOrders = async (req, res) => {
       "Orders fetched successfully",
     );
   } catch (error) {
+    console.error("Get all orders error:", error);
     return errorResponse(res, error.message);
   }
 };
-
 // Get Single Order (Admin)
 export const getOrderDetails = async (req, res) => {
   try {
@@ -559,8 +655,6 @@ export const getOrderStats = async (req, res) => {
   }
 };
 
-// src/controllers/order.controller.js - FIXED VERSION
-
 // Helper function for grouping by different time periods
 const getGroupByFormat = (groupBy) => {
   switch (groupBy) {
@@ -593,27 +687,49 @@ const getGroupByFormat = (groupBy) => {
   }
 };
 
-// Get Order Analytics with Advanced Filters
+// Get Order Analytics with Advanced Filters - FIXED
 export const getOrderAnalytics = async (req, res) => {
   try {
-    const { startDate, endDate, groupBy = "day", status } = req.query;
+    let { startDate, endDate, groupBy = "day", status, period } = req.query;
 
-    // Build match stage
-    const matchStage = {};
+    // Handle date filtering
+    let matchStage = {};
 
-    if (startDate || endDate) {
+    // Priority: period overrides custom dates
+    if (period && period !== "custom") {
+      const dateRange = getDateRangeFromPeriod(period);
+      if (dateRange) {
+        matchStage.createdAt = {
+          $gte: dateRange.start,
+          $lte: dateRange.end,
+        };
+      }
+    } else if (startDate || endDate) {
       matchStage.createdAt = {};
-      if (startDate) matchStage.createdAt.$gte = new Date(startDate);
-      if (endDate) matchStage.createdAt.$lte = new Date(endDate);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        matchStage.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        matchStage.createdAt.$lte = end;
+      }
     }
 
-    if (status) {
+    if (status && status !== "all") {
       matchStage.status = status;
     }
 
-    // Get analytics data - FIXED: No nested $facet
+    console.log("Match stage:", JSON.stringify(matchStage, null, 2));
+
+    // If no match stage, get all orders
+    const hasDateFilter = Object.keys(matchStage).length > 0;
+
+    // Get analytics data
     const analytics = await Order.aggregate([
-      { $match: matchStage },
+      ...(hasDateFilter ? [{ $match: matchStage }] : []),
       {
         $facet: {
           // Revenue over time
@@ -640,54 +756,31 @@ export const getOrderAnalytics = async (req, res) => {
             },
           ],
 
-          // Hourly distribution (when orders are placed)
-          hourlyDistribution: [
+          // Summary stats
+          summary: [
             {
               $group: {
-                _id: { hour: { $hour: "$createdAt" } },
-                orders: { $sum: 1 },
-                revenue: { $sum: "$finalAmount" },
+                _id: null,
+                totalRevenue: { $sum: "$finalAmount" },
+                totalOrders: { $sum: 1 },
+                averageOrderValue: { $avg: "$finalAmount" },
+                minOrderValue: { $min: "$finalAmount" },
+                maxOrderValue: { $max: "$finalAmount" },
               },
             },
-            { $sort: { "_id.hour": 1 } },
-          ],
-
-          // Day of week distribution
-          dayOfWeekDistribution: [
-            {
-              $group: {
-                _id: { dayOfWeek: { $dayOfWeek: "$createdAt" } },
-                orders: { $sum: 1 },
-                revenue: { $sum: "$finalAmount" },
-              },
-            },
-            { $sort: { "_id.dayOfWeek": 1 } },
-          ],
-
-          // Average order value trend
-          aovTrend: [
-            {
-              $group: {
-                _id: getGroupByFormat(groupBy),
-                aov: { $avg: "$finalAmount" },
-              },
-            },
-            { $sort: { _id: 1 } },
           ],
         },
       },
     ]);
 
-    // Get customer metrics separately (FIXED: Removed from $facet)
+    // Get customer metrics separately
     const customerMetrics = await Order.aggregate([
-      { $match: matchStage },
+      ...(hasDateFilter ? [{ $match: matchStage }] : []),
       {
         $group: {
           _id: "$user",
           totalSpent: { $sum: "$finalAmount" },
           orderCount: { $sum: 1 },
-          firstOrder: { $min: "$createdAt" },
-          lastOrder: { $max: "$createdAt" },
         },
       },
       {
@@ -712,10 +805,10 @@ export const getOrderAnalytics = async (req, res) => {
       },
     ]);
 
-    // Combine results
     const result = {
       ...analytics[0],
       customerMetrics: customerMetrics[0],
+      dateRange: matchStage.createdAt || null,
     };
 
     return successResponse(res, result, "Order analytics fetched successfully");
