@@ -63,6 +63,60 @@ class ReviewService {
     return !review;
   }
 
+  // Get user's delivered products that haven't been reviewed yet
+  async userDeliveredProductsNotReviewed(userId) {
+    try {
+      // Find all delivered orders for the user
+      const orders = await this.Order.find({
+        user: userId,
+        status: "Delivered",
+      })
+        .populate("products.product", "name slug price images")
+        .lean();
+
+      if (!orders.length) {
+        return [];
+      }
+
+      // Collect all products from delivered orders with their order info
+      const productsWithOrderInfo = [];
+
+      for (const order of orders) {
+        for (const item of order.products) {
+          if (item.product) {
+            // Check if already reviewed
+            const existingReview = await this.Review.findOne({
+              user: userId,
+              product: item.product._id,
+              orderId: order._id,
+            });
+
+            if (!existingReview) {
+              productsWithOrderInfo.push({
+                orderId: order._id,
+                orderIdDisplay: order.orderId,
+                product: {
+                  _id: item.product._id,
+                  name: item.product.name,
+                  slug: item.product.slug,
+                  price: item.priceAtPurchase || item.product.price,
+                  discountPrice: item.product.discountPrice,
+                  image: item.product.images?.[0]?.url || null,
+                  quantity: item.quantity,
+                },
+                orderDate: order.createdAt,
+                orderStatus: order.status,
+              });
+            }
+          }
+        }
+      }
+
+      return productsWithOrderInfo;
+    } catch (error) {
+      throw new Error(`Failed to fetch reviewable products: ${error.message}`);
+    }
+  }
   // Create review
   async createReview(userId, reviewData, imageFile = null) {
     try {
