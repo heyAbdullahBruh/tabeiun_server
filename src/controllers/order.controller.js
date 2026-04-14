@@ -874,3 +874,97 @@ export const getRealtimeOrderStats = async (req, res) => {
     return errorResponse(res, error.message);
   }
 };
+
+// Simple CSV Only Version
+export const exportOrders = async (req, res) => {
+  try {
+    const { period, startDate, endDate, status } = req.query;
+
+    // Build filter (same as above)
+    const filter = {};
+
+    if (period && period !== "custom" && period !== "all") {
+      const dateRange = getDateRangeFromPeriod(period);
+      if (dateRange) {
+        filter.createdAt = { $gte: dateRange.start, $lte: dateRange.end };
+      }
+    } else if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+
+    if (status && status !== "all") filter.status = status;
+
+    const orders = await Order.find(filter)
+      .populate("user", "name email phone")
+      .populate("products.product", "name")
+      .sort("-createdAt")
+      .lean();
+
+    if (!orders.length) {
+      return errorResponse(res, "No orders found to export", 404);
+    }
+
+    // Create CSV headers
+    const headers = [
+      "Order ID",
+      "Order Date",
+      "Customer Name",
+      "Customer Email",
+      "Customer Phone",
+      "Delivery Address",
+      "Products",
+      "Total Items",
+      "Subtotal",
+      "Discount",
+      "Shipping Cost",
+      "Total Amount",
+      "Payment Method",
+      "Status",
+    ];
+
+    // Create CSV rows
+    const rows = orders.map((order) => [
+      order.orderId,
+      new Date(order.createdAt).toLocaleString(),
+      order.user?.name || "N/A",
+      order.user?.email || "N/A",
+      order.phone || order.user?.phone || "N/A",
+      `${order.deliveryAddress?.street}, ${order.deliveryAddress?.city}`,
+      order.products.map((item) => item.product?.name).join("; "),
+      order.products.reduce((sum, item) => sum + item.quantity, 0),
+      order.totalAmount,
+      order.discount || 0,
+      order.shippingCost || 0,
+      order.finalAmount,
+      order.paymentMethod || "COD",
+      order.status,
+    ]);
+
+    // Build CSV string
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    // Set response headers
+    const date = new Date();
+    const filename = `orders_${period || "export"}_${date.toISOString().split("T")[0]}.csv`;
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    return res.send(csvContent);
+  } catch (error) {
+    return errorResponse(res, error.message);
+  }
+};

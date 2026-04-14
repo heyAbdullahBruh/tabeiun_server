@@ -11,7 +11,8 @@ import {
   updateOrderStatus,
   getOrderStats, // NEW
   getOrderAnalytics, // NEW
-  getRealtimeOrderStats, // NEW
+  getRealtimeOrderStats,
+  exportOrders, // NEW
 } from "../controllers/order.controller.js";
 import {
   authenticateUser,
@@ -107,5 +108,7 @@ router.patch(
   validate(orderStatusValidator),
   updateOrderStatus,
 );
+
+router.get("/export", authenticateAdmin, isAdminOrModerator, exportOrders); // NEW: Export orders for analytics
 
 export default router;
