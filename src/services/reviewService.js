@@ -182,7 +182,34 @@ class ReviewService {
         rating,
         comment,
         image,
-        isApproved: false,
+        isApproved: true,
+      });
+
+      const productTotalRatingSum = await this.Review.aggregate([
+        {
+          $match: {
+            product: this.#toObjectId(productId),
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalRating: { $sum: "$rating" },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const totalRating = productTotalRatingSum[0]?.totalRating || 0;
+      const count = productTotalRatingSum[0]?.count || 0;
+      const totalReviews = await this.Review.countDocuments({
+        product: this.#toObjectId(productId),
+      });
+
+      await this.Product.findByIdAndUpdate(productId, {
+        ratingAverage: (totalRating / count).toFixed(1),
+        ratingCount: count,
+        totalReviews,
       });
 
       return review;
