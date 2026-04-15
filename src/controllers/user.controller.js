@@ -85,7 +85,7 @@ export const getUserOrderSummary = async (req, res) => {
     const userId = req.user._id;
 
     const orderStats = await Order.aggregate([
-      { $match: { user: mongoose.Types.ObjectId(userId) } },
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
       {
         $group: {
           _id: "$status",
@@ -190,7 +190,7 @@ export const getUserById = async (req, res) => {
 
     // Get user order statistics
     const orderStats = await Order.aggregate([
-      { $match: { user: mongoose.Types.ObjectId(userId) } },
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
       {
         $group: {
           _id: null,
@@ -210,6 +210,7 @@ export const getUserById = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Error fetching user by ID:", error);
     return errorResponse(res, error.message);
   }
 };
@@ -275,7 +276,7 @@ export const getUserOrdersByAdmin = async (req, res) => {
     }
 
     // Build filter
-    const filter = { user: mongoose.Types.ObjectId(userId) };
+    const filter = { user: new mongoose.Types.ObjectId(userId) };
 
     if (status) {
       filter.status = status;
@@ -301,7 +302,7 @@ export const getUserOrdersByAdmin = async (req, res) => {
 
     // Get order statistics
     const stats = await Order.aggregate([
-      { $match: { user: mongoose.Types.ObjectId(userId) } },
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
       {
         $group: {
           _id: "$status",
@@ -314,7 +315,10 @@ export const getUserOrdersByAdmin = async (req, res) => {
     // Get total spent
     const totalSpent = await Order.aggregate([
       {
-        $match: { user: mongoose.Types.ObjectId(userId), status: "Delivered" },
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          status: "Delivered",
+        },
       },
       { $group: { _id: null, total: { $sum: "$finalAmount" } } },
     ]);
@@ -390,7 +394,7 @@ export const getUserOrderSummaryByAdmin = async (req, res) => {
       Order.aggregate([
         {
           $match: {
-            user: mongoose.Types.ObjectId(userId),
+            user: new mongoose.Types.ObjectId(userId),
             status: "Delivered",
           },
         },
@@ -403,7 +407,7 @@ export const getUserOrderSummaryByAdmin = async (req, res) => {
         .sort("-createdAt")
         .select("orderId finalAmount status createdAt"),
       Order.aggregate([
-        { $match: { user: mongoose.Types.ObjectId(userId) } },
+        { $match: { user: new mongoose.Types.ObjectId(userId) } },
         {
           $group: {
             _id: {
@@ -458,7 +462,7 @@ export const exportUserOrders = async (req, res) => {
     }
 
     // Build filter
-    const filter = { user: mongoose.Types.ObjectId(userId) };
+    const filter = { user: new mongoose.Types.ObjectId(userId) };
 
     if (status) {
       filter.status = status;
