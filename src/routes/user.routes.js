@@ -13,6 +13,7 @@ import {
   getUserOrdersByAdmin,
   getUserOrderSummaryByAdmin,
   exportUserOrders,
+  exportUsers,
 } from "../controllers/user.controller.js";
 import {
   authenticateUser,
@@ -72,6 +73,8 @@ router.put(
 // ==========================================
 
 // Get all users (admin only)
+router.get("/admin/export", authenticateAdmin, isAdmin, exportUsers);
+
 router.get("/admin/all", authenticateAdmin, isAdmin, getAllUsers);
 
 // Get single user by ID (admin only)
@@ -117,4 +120,5 @@ router.get(
   validate(userIdValidator),
   exportUserOrders,
 );
+
 export default router;

@@ -528,3 +528,132 @@ export const exportUserOrders = async (req, res) => {
     return errorResponse(res, error.message);
   }
 };
+// Simple CSV Only Version - No xlsx package needed
+export const exportUsers = async (req, res) => {
+  try {
+    const { period, startDate, endDate, status, provider } = req.query;
+
+    // Build filter (same as above)
+    const filter = {};
+
+    if (period && period !== "custom" && period !== "all") {
+      const dateRange = getUserDateRangeFromPeriod(period);
+      if (dateRange) {
+        filter.createdAt = { $gte: dateRange.start, $lte: dateRange.end };
+      }
+    } else if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+
+    if (status === "blocked") filter.isBlocked = true;
+    else if (status === "active") filter.isBlocked = false;
+
+    if (provider && provider !== "all") filter.provider = provider;
+
+    const users = await User.find(filter).sort("-createdAt").lean();
+
+    if (!users.length) {
+      return errorResponse(res, "No users found to export", 404);
+    }
+
+    // Get order stats
+    const userIds = users.map((u) => u._id);
+    const orderStats = await Order.aggregate([
+      { $match: { user: { $in: userIds } } },
+      {
+        $group: {
+          _id: "$user",
+          totalOrders: { $sum: 1 },
+          totalSpent: { $sum: "$finalAmount" },
+        },
+      },
+    ]);
+
+    const statsMap = {};
+    orderStats.forEach((stat) => {
+      statsMap[stat._id.toString()] = stat;
+    });
+
+    // CSV Headers
+    const headers = [
+      "User ID",
+      "Name",
+      "Email",
+      "Phone",
+      "Provider",
+      "Email Verified",
+      "Has Set Password",
+      "Status",
+      "Registration Date",
+      "Last Login",
+      "Total Orders",
+      "Total Spent",
+      "Average Order Value",
+      "Address",
+    ];
+
+    // CSV Rows
+    const rows = users.map((user) => {
+      const stats = statsMap[user._id.toString()] || {};
+      const avgOrderValue = stats.totalOrders
+        ? (stats.totalSpent / stats.totalOrders).toFixed(2)
+        : 0;
+
+      const address = user.address
+        ? `${user.address.street || ""}, ${user.address.city || ""}, ${user.address.state || ""}, ${user.address.postalCode || ""}, ${user.address.country || "Bangladesh"}`
+            .replace(/,\s*,/g, ",")
+            .replace(/^,\s*/, "")
+        : "N/A";
+
+      return [
+        user._id.toString(),
+        user.name,
+        user.email,
+        user.phone || "N/A",
+        user.provider === "google"
+          ? "Google"
+          : user.provider === "facebook"
+            ? "Facebook"
+            : "Email",
+        user.isEmailVerified ? "Yes" : "No",
+        user.hasSetPassword ? "Yes" : "No",
+        user.isBlocked ? "Blocked" : "Active",
+        new Date(user.createdAt).toLocaleString(),
+        user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "Never",
+        stats.totalOrders || 0,
+        stats.totalSpent || 0,
+        avgOrderValue,
+        address,
+      ];
+    });
+
+    // Build CSV string
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+      ),
+    ].join("\n");
+
+    const date = new Date();
+    const filename = `users_${period || "export"}_${date.toISOString().split("T")[0]}.csv`;
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    return res.send(csvContent);
+  } catch (error) {
+    console.error("Export users error:", error);
+    return errorResponse(res, error.message);
+  }
+};
