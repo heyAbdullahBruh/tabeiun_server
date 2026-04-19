@@ -242,24 +242,22 @@ export const getRecommendedProducts = async (req, res) => {
     const { limit = 10 } = req.query;
     const userId = req.user?._id;
 
-    if (!userId) {
-      // For guest users, return top rated products
-      const products = await productService.getTopRatedProducts(limit);
-      return successResponse(
-        res,
-        { products },
-        "Recommended products fetched successfully",
-      );
+    let products;
+
+    if (userId) {
+      products = await productService.getRecommendedProducts(userId, limit);
     }
 
-    const products = await productService.getRecommendedProducts(userId, limit);
+    if (!products || products.length === 0) {
+      products = await productService.getTopRatedProducts(limit);
+    }
     return successResponse(
       res,
       { products },
       "Recommended products fetched successfully",
     );
   } catch (error) {
-    console.log(error);
+    // console.log(error);
     return errorResponse(res, error.message);
   }
 };
